@@ -334,6 +334,8 @@ p {
   border-radius: 18px;
   background: linear-gradient(90deg, rgba(124, 58, 237, 0.24), #0a0a0a 62%);
   color: #f5f5f5;
+  cursor: pointer;
+  text-align: left;
 }
 
 .matchCard:focus-visible {
@@ -355,6 +357,48 @@ p {
 
 .matchCard.expanded {
   border-color: #737373;
+}
+
+.matchCard.finished,
+.pressCard.finished {
+  border-color: rgba(245, 245, 245, 0.78);
+  box-shadow: inset 0 0 0 1px rgba(245, 245, 245, 0.28), 0 0 0 1px rgba(245, 245, 245, 0.12);
+}
+
+.matchCard.finished .right strong,
+.pressCard.finished .right strong {
+  color: #f5f5f5;
+}
+
+.matchCard.finished.leading-jailbirds,
+.pressCard.finished.leading-jailbirds {
+  border-color: #93c5fd;
+  box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.38), 0 0 0 1px rgba(147, 197, 253, 0.22);
+}
+
+.matchCard.finished.leading-zookeepers,
+.pressCard.finished.leading-zookeepers {
+  border-color: #86efac;
+  box-shadow: inset 0 0 0 1px rgba(134, 239, 172, 0.38), 0 0 0 1px rgba(134, 239, 172, 0.22);
+}
+
+.finalPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 6px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: #f5f5f5;
+  color: #0a0a0a;
+  font-size: 10px;
+  font-weight: 950;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.pressCard.expanded {
+  border-color: #a78bfa;
 }
 
 .matchCard.leading-jailbirds .right strong,
@@ -388,13 +432,6 @@ small {
 
 .meta {
   grid-column: 1 / -1;
-}
-
-.pressStatus {
-  grid-column: 1 / -1;
-  color: #ddd6fe;
-  font-size: 12px;
-  font-weight: 900;
 }
 
 .boardMatchDetails {
@@ -453,6 +490,20 @@ small {
   font-size: 21px;
 }
 
+.matchStatusLine {
+  margin-top: 5px;
+  color: #ddd6fe !important;
+  font-weight: 900;
+}
+
+.matchStatusLine.status-jailbirds {
+  color: #93c5fd !important;
+}
+
+.matchStatusLine.status-zookeepers {
+  color: #86efac !important;
+}
+
 .pressSummary {
   margin-top: 5px;
   color: #ddd6fe !important;
@@ -461,6 +512,55 @@ small {
 
 .holeCard {
   margin-top: 14px;
+}
+
+.scorecardStrip {
+  margin-top: 14px;
+  padding: 12px;
+}
+
+.scorecardStrip .holeGrid {
+  margin-top: 0;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.scorecardStrip .holeGrid button {
+  min-height: 58px;
+  display: grid;
+  grid-template-rows: minmax(16px, 1fr) minmax(22px, 1fr);
+  align-items: center;
+  justify-items: center;
+  place-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 7px 0;
+  line-height: 1;
+  text-align: center;
+}
+
+.scorecardStrip .holeGrid strong {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  line-height: 1;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+}
+
+.scorecardStrip .holeGrid .holeResult {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  line-height: 1;
+  margin: 0;
+  padding: 0;
+  text-align: center;
 }
 
 .holeCard.pressScoring {
@@ -626,11 +726,16 @@ small {
 
 .holeGrid button {
   min-width: 0;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  place-items: center;
+  gap: 2px;
   border-radius: 13px;
   border: 1px solid #262626;
   background: #0a0a0a;
   color: #f5f5f5;
-  padding: 8px 3px;
+  padding: 7px 3px;
+  text-align: center;
 }
 
 .holeGrid button.selected {
@@ -638,9 +743,35 @@ small {
   color: #0a0a0a;
 }
 
+.holeGrid button.complete.team-jailbirds {
+  border-color: rgba(37, 99, 235, 0.9);
+  background: var(--jailbirds);
+  color: #f5f5f5;
+}
+
+.holeGrid button.complete.team-zookeepers {
+  border-color: rgba(22, 163, 74, 0.9);
+  background: var(--zookeepers);
+  color: #f5f5f5;
+}
+
+.holeGrid button.complete.halved {
+  border-color: #d4d4d4;
+  background: #d4d4d4;
+  color: #0a0a0a;
+}
+
 .holeGrid button.pressHoleButton {
   border-color: rgba(167, 139, 250, 0.52);
   background: rgba(76, 29, 149, 0.22);
+}
+
+.holeGrid button.pressHoleButton.complete.team-jailbirds {
+  background: linear-gradient(180deg, var(--jailbirds), #4c1d95);
+}
+
+.holeGrid button.pressHoleButton.complete.team-zookeepers {
+  background: linear-gradient(180deg, var(--zookeepers), #4c1d95);
 }
 
 .holeGrid button.pressHoleButton.selected {
@@ -655,7 +786,8 @@ small {
 }
 
 .holeGrid strong {
-  color: #a3a3a3;
+  color: #cbd5e1;
+  font-weight: 650;
 }
 
 .holeResult {
@@ -663,8 +795,8 @@ small {
   align-items: center;
   justify-content: center;
   min-width: 28px;
-  min-height: 24px;
-  margin-top: 3px;
+  min-height: 22px;
+  margin-top: 0;
   border-radius: 8px;
   border: 1px solid #262626;
   font-size: 15px;
@@ -699,10 +831,33 @@ small {
   color: #0a0a0a;
 }
 
+.holeGrid button.complete strong {
+  color: rgba(226, 232, 240, 0.82);
+  font-weight: 650;
+}
+
+.holeGrid button.complete .holeResult {
+  border-color: transparent;
+  background: transparent;
+}
+
+.scorecardStrip .holeResult {
+  font-size: 18px;
+}
+
+.scorecardStrip .holeResult.empty {
+  border-color: transparent;
+  background: transparent;
+}
+
 .holeGrid button.selected .holeResult.HALVE,
 .holeGrid button.selected .holeResult.empty {
   color: #0a0a0a;
   border-color: #0a0a0a;
+}
+
+.scorecardStrip .holeGrid button.selected .holeResult.empty {
+  border-color: transparent;
 }
 
 .clearPlayerButton {
@@ -732,6 +887,87 @@ small {
   border-radius: 16px;
   background: #7f1d1d;
   color: #fee2e2;
+}
+
+.adminControls {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid #262626;
+  border-radius: 20px;
+  background: #0a0a0a;
+}
+
+.adminControls h3 {
+  font-size: 16px;
+}
+
+.visibilityGrid {
+  display: grid;
+  gap: 8px;
+}
+
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 10px;
+  border: 1px solid #262626;
+  border-radius: 14px;
+  background: #171717;
+}
+
+.checkRow input {
+  width: 18px;
+  min-height: 18px;
+}
+
+.checkRow span {
+  color: #f5f5f5;
+  font-weight: 800;
+}
+
+.presetButtons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.presetButtons button,
+.orderRow button {
+  min-height: 40px;
+  border: 1px solid #404040;
+  border-radius: 13px;
+  background: #171717;
+  color: #f5f5f5;
+  font-size: 12px;
+}
+
+.orderList {
+  display: grid;
+  gap: 8px;
+}
+
+.orderRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #262626;
+  border-radius: 14px;
+  background: #171717;
+}
+
+.orderRow span {
+  font-weight: 850;
+}
+
+.orderRow div {
+  display: flex;
+  gap: 6px;
 }
 
 .adminLockBar {

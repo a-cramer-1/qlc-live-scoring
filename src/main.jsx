@@ -103,9 +103,14 @@ const SESSIONS = [
 
 const MATCHES = SESSIONS.flatMap((session) => session.matches.map((match) => ({ ...match, session })));
 const STORAGE_KEY = "qlc-live-scoring-fallback-v2";
+const SETTINGS_STORAGE_KEY = "qlc-live-scoring-settings-v1";
 const ADMIN_AUTH_KEY = "qlc-admin-auth";
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || "qlc2026";
 const FORFEIT = "X";
+const DEFAULT_SETTINGS = {
+  visibleSessionIds: ["sat-am", "sat-pm"],
+  sessionOrder: ["sat-am", "sat-pm", "sun-am", "sun-pm"],
+};
 
 function playerHandicap(player) {
   return TEAMS[PLAYER_TEAM[player]]?.players[player] ?? 0;
@@ -341,6 +346,48 @@ function saveLocalRows(rows) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
 }
 
+function normalizeSettings(settings) {
+  const sessionIds = SESSIONS.map((session) => session.id);
+  const visible = Array.isArray(settings?.visibleSessionIds)
+    ? settings.visibleSessionIds.filter((id) => sessionIds.includes(id))
+    : DEFAULT_SETTINGS.visibleSessionIds;
+  const ordered = Array.isArray(settings?.sessionOrder)
+    ? settings.sessionOrder.filter((id) => sessionIds.includes(id))
+    : DEFAULT_SETTINGS.sessionOrder;
+
+  return {
+    visibleSessionIds: visible.length ? visible : DEFAULT_SETTINGS.visibleSessionIds,
+    sessionOrder: [...ordered, ...sessionIds.filter((id) => !ordered.includes(id))],
+  };
+}
+
+function loadLocalSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY));
+    return normalizeSettings(saved);
+  } catch {
+    return normalizeSettings(DEFAULT_SETTINGS);
+  }
+}
+
+function saveLocalSettings(settings) {
+  localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+}
+
+function orderedSessions(settings, options = {}) {
+  const normalized = normalizeSettings(settings);
+  const visibleSet = new Set(normalized.visibleSessionIds);
+  const byId = Object.fromEntries(SESSIONS.map((session) => [session.id, session]));
+  return normalized.sessionOrder
+    .map((id) => byId[id])
+    .filter(Boolean)
+    .filter((session) => options.includeHidden || visibleSet.has(session.id));
+}
+
+function visibleMatches(settings) {
+  return orderedSessions(settings).flatMap((session) => session.matches.map((match) => ({ ...match, session })));
+}
+
 function summarizeMatchSegment(match, holeResults, startIdx, endIdx, pointsValue, options = {}) {
   const totalHoles = endIdx - startIdx + 1;
   let holesWonA = 0;
@@ -365,7 +412,7 @@ function summarizeMatchSegment(match, holeResults, startIdx, endIdx, pointsValue
     const remaining = endIdx - holeIdx;
     if (Math.abs(diff) > remaining) {
       const winner = diff > 0 ? "A" : "B";
-      compact = `${Math.abs(diff)} & ${remaining}`;
+      compact = remaining === 0 ? `${Math.abs(diff)} UP` : `${Math.abs(diff)} & ${remaining}`;
       status = `${sideLabel(winner === "A" ? match.a : match.b)} wins ${prefix}${compact}`;
       pointsA = winner === "A" ? pointsValue : 0;
       pointsB = winner === "B" ? pointsValue : 0;
@@ -569,6 +616,84 @@ function useScores() {
   return { rows, updateRow, syncStatus };
 }
 
+function useAppSettings() {
+  const [settings, setSettings] = useState(() => loadLocalSettings());
+  const settingsRef = useRef(settings);
+
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+
+  useEffect(() => {
+    if (!supabase) return;
+
+    let active = true;
+
+    async function load() {
+      const { data, error } = await supabase
+        .from("app_settings")
+        .select("*")
+        .eq("id", "global")
+        .maybeSingle();
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      if (!data) {
+        await supabase.from("app_settings").upsert({ id: "global", settings: DEFAULT_SETTINGS });
+        if (active) setSettings(normalizeSettings(DEFAULT_SETTINGS));
+        return;
+      }
+
+      if (active) {
+        const nextSettings = normalizeSettings(data.settings);
+        settingsRef.current = nextSettings;
+        setSettings(nextSettings);
+        saveLocalSettings(nextSettings);
+      }
+    }
+
+    load();
+
+    const channel = supabase
+      .channel("qlc-app-settings")
+      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, (payload) => {
+        if (payload.new?.id !== "global") return;
+        const nextSettings = normalizeSettings(payload.new.settings);
+        settingsRef.current = nextSettings;
+        setSettings(nextSettings);
+        saveLocalSettings(nextSettings);
+      })
+      .subscribe();
+
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  async function updateSettings(patch) {
+    const current = settingsRef.current;
+    const resolvedPatch = typeof patch === "function" ? patch(current) : patch;
+    const nextSettings = normalizeSettings({ ...current, ...resolvedPatch });
+    settingsRef.current = nextSettings;
+    setSettings(nextSettings);
+    saveLocalSettings(nextSettings);
+
+    if (!supabase) return;
+    const { error } = await supabase.from("app_settings").upsert({
+      id: "global",
+      settings: nextSettings,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) console.error(error);
+  }
+
+  return { settings, updateSettings };
+}
+
 function getInitialRoute() {
   const hash = window.location.hash.replace(/^#\/?/, "");
   const [view, matchId] = hash.split("/");
@@ -635,14 +760,14 @@ function projectedPressSidePoints(press) {
   return { pointsA: 0, pointsB: 0, counted: true, active: true };
 }
 
-function scoreTotals(rows) {
+function scoreTotals(rows, settings) {
   const actual = { jailbirds: 0, zookeepers: 0 };
   const projected = { jailbirds: 0, zookeepers: 0 };
   let decided = 0;
   let projectedCount = 0;
   let active = 0;
 
-  SESSIONS.forEach((session) => {
+  orderedSessions(settings).forEach((session) => {
     session.matches.forEach((match) => {
       const result = computeMatch(session, match, rows[match.id]);
       addSidePointsToTeams(match, result.pointsA, result.pointsB, actual);
@@ -667,8 +792,8 @@ function scoreTotals(rows) {
   return { actual, projected, decided, projectedCount, active };
 }
 
-function OverallScore({ rows }) {
-  const totals = useMemo(() => scoreTotals(rows), [rows]);
+function OverallScore({ rows, settings }) {
+  const totals = useMemo(() => scoreTotals(rows, settings), [rows, settings]);
 
   return (
     <section className="scoreHero">
@@ -724,13 +849,25 @@ function BoardMatchDetails({ session, match, result }) {
   );
 }
 
-function PressBoardCard({ session, match, result }) {
+function PressBoardCard({ session, match, result, isExpanded, onToggle }) {
   const course = COURSE[session.nine];
   const press = result.press;
   if (!press) return null;
 
   return (
-    <div className={`pressCard ${leadingTeamClass(match, press)}`}>
+    <div
+      role="button"
+      tabIndex={0}
+      className={`pressCard ${leadingTeamClass(match, press)} ${press.pointsA + press.pointsB > 0 ? "finished" : ""} ${isExpanded ? "expanded" : ""}`}
+      onClick={onToggle}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onToggle();
+        }
+      }}
+      aria-expanded={isExpanded}
+    >
       <div>
         <small>Press · 0.5 pt · Holes {course.holes.slice(press.startIdx, press.endIdx + 1).join("-")}</small>
         <strong>{sideLabel(match.a)}</strong>
@@ -738,34 +875,50 @@ function PressBoardCard({ session, match, result }) {
       </div>
       <div className="right">
         <strong>{press.compact}</strong>
-        <small>{press.completed}/{press.totalHoles} holes</small>
+        {press.pointsA + press.pointsB > 0 && <span className="finalPill">Final</span>}
       </div>
-      <div className="pressStatus">{press.status}</div>
-      <div className="boardHoleGrid pressHoleGrid">
-        {course.holes.slice(press.startIdx, press.endIdx + 1).map((hole, offset) => {
-          const holeIdx = press.startIdx + offset;
-          return (
-            <div className="boardHole pressHole" key={hole}>
-              <small>{hole}</small>
-              <span className={holeResultClasses(match, result.holeResults[holeIdx])}>
-                {holeResultLabel(match, result.holeResults[holeIdx])}
-              </span>
-            </div>
-          );
-        })}
-      </div>
+      {isExpanded && (
+        <div className="boardHoleGrid pressHoleGrid">
+          {course.holes.slice(press.startIdx, press.endIdx + 1).map((hole, offset) => {
+            const holeIdx = press.startIdx + offset;
+            return (
+              <div className="boardHole pressHole" key={hole}>
+                <small>{hole}</small>
+                <span className={holeResultClasses(match, result.holeResults[holeIdx])}>
+                  {holeResultLabel(match, result.holeResults[holeIdx])}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
-function Board({ rows }) {
+function Board({ rows, settings, setRoute }) {
   const [expandedMatchId, setExpandedMatchId] = useState(null);
+  const [expandedPressId, setExpandedPressId] = useState(null);
+
+  function scoreMatch(matchId) {
+    const next = { view: "score", matchId };
+    setRoute(next);
+    setHash(next.view, next.matchId);
+  }
+
+  function handleMatchCardAction(matchId, isExpanded) {
+    if (isExpanded) {
+      scoreMatch(matchId);
+      return;
+    }
+    setExpandedMatchId(matchId);
+  }
 
   return (
     <main className="page">
-      <OverallScore rows={rows} />
+      <OverallScore rows={rows} settings={settings} />
       <div className="sessionGrid">
-        {SESSIONS.map((session) => (
+        {orderedSessions(settings).map((session) => (
           <section className="card" key={session.id}>
             <div className="cardHeader">
               <div>
@@ -779,18 +932,20 @@ function Board({ rows }) {
                 const result = computeMatch(session, match, rows[match.id]);
                 const strokes = matchStrokes(session, match, rows[match.id]);
                 const isExpanded = expandedMatchId === match.id;
+                const isPressExpanded = expandedPressId === match.id;
                 const leadingClass = leadingTeamClass(match, result);
+                const isFinal = result.pointsA + result.pointsB > 0;
                 return (
                   <React.Fragment key={match.id}>
                     <div
                       role="button"
                       tabIndex={0}
-                      className={`matchCard ${leadingClass} ${isExpanded ? "expanded" : ""}`}
-                      onClick={() => setExpandedMatchId(isExpanded ? null : match.id)}
+                    className={`matchCard ${leadingClass} ${result.pointsA + result.pointsB > 0 ? "finished" : ""} ${isExpanded ? "expanded" : ""}`}
+                      onClick={() => handleMatchCardAction(match.id, isExpanded)}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
-                          setExpandedMatchId(isExpanded ? null : match.id);
+                          handleMatchCardAction(match.id, isExpanded);
                         }
                       }}
                       aria-expanded={isExpanded}
@@ -802,12 +957,19 @@ function Board({ rows }) {
                       </div>
                       <div className="right">
                         <strong>{result.compact}</strong>
-                        <small>thru {result.completed}</small>
+                        {!isFinal && <small>thru {result.completed}</small>}
+                        {isFinal && <span className="finalPill">Final</span>}
                       </div>
                       <div className="meta">Strokes: {strokesText(session, match, strokes)}{strokes.manual ? " · manual" : ""}</div>
                       {isExpanded && <BoardMatchDetails session={session} match={match} result={result} />}
                     </div>
-                    <PressBoardCard session={session} match={match} result={result} />
+                    <PressBoardCard
+                      session={session}
+                      match={match}
+                      result={result}
+                      isExpanded={isPressExpanded}
+                      onToggle={() => setExpandedPressId(isPressExpanded ? null : match.id)}
+                    />
                   </React.Fragment>
                 );
               })}
@@ -819,10 +981,10 @@ function Board({ rows }) {
   );
 }
 
-function MatchSelect({ value, onChange }) {
+function MatchSelect({ value, onChange, matches = MATCHES }) {
   return (
     <select className="select" value={value} onChange={(e) => onChange(e.target.value)}>
-      {MATCHES.map(({ session, ...match }) => (
+      {matches.map(({ session, ...match }) => (
         <option key={match.id} value={match.id}>
           {session.shortLabel} · Tee {match.tee} · {sideLabel(match.a)} vs {sideLabel(match.b)}
         </option>
@@ -862,15 +1024,36 @@ function winningScoreForSlot(row, result, side, slotCount, slotIdx, holeIdx) {
   return state.known && !state.forfeited && !slot.forfeited && slot.net === state.net;
 }
 
-function Score({ rows, updateRow, route, setRoute }) {
-  const selectedMatchId = route.matchId || MATCHES[0].id;
-  const found = MATCHES.find((m) => m.id === selectedMatchId) || MATCHES[0];
+function Score({ rows, updateRow, route, setRoute, settings }) {
+  const availableMatches = visibleMatches(settings);
+  const selectedMatchId = route.matchId || availableMatches[0]?.id;
+  const found = availableMatches.find((m) => m.id === selectedMatchId) || availableMatches[0];
+  const [holeIdx, setHoleIdx] = useState(0);
+
+  useEffect(() => {
+    if (!availableMatches.length) return;
+    if (found?.id === selectedMatchId) return;
+    const next = { view: "score", matchId: availableMatches[0].id };
+    setRoute(next);
+    setHash(next.view, next.matchId);
+  }, [availableMatches, found?.id, selectedMatchId, setRoute]);
+
+  useEffect(() => setHoleIdx(0), [selectedMatchId]);
+
+  if (!found) {
+    return (
+      <main className="page narrow">
+        <section className="card">
+          <h2>No matches visible</h2>
+          <p className="mutedText">Use Admin to reveal a session before entering scores.</p>
+        </section>
+      </main>
+    );
+  }
+
   const session = found.session;
   const match = found;
   const row = rows[match.id];
-  const [holeIdx, setHoleIdx] = useState(0);
-
-  useEffect(() => setHoleIdx(0), [selectedMatchId]);
 
   const course = COURSE[session.nine];
   const result = computeMatch(session, match, row);
@@ -881,6 +1064,7 @@ function Score({ rows, updateRow, route, setRoute }) {
   const aSlotCount = sideSlotCount(session, match.a);
   const bSlotCount = sideSlotCount(session, match.b);
   const isPressHole = result.press && holeIdx >= result.press.startIdx && holeIdx <= result.press.endIdx;
+  const statusTeamClass = leadingTeamClass(match, result).replace("leading-", "status-");
 
   function selectMatch(matchId) {
     const next = { view: "score", matchId };
@@ -904,13 +1088,36 @@ function Score({ rows, updateRow, route, setRoute }) {
     <main className="page narrow">
       <section className="card">
         <div className="eyebrow">Mobile score entry</div>
-        <MatchSelect value={selectedMatchId} onChange={selectMatch} />
+        <MatchSelect value={selectedMatchId} onChange={selectMatch} matches={availableMatches} />
         <div className="matchSummary">
           <small>{session.label} · {session.format} · {course.label}</small>
           <h2>{sideLabel(match.a)} vs {sideLabel(match.b)}</h2>
-          <p>{result.status}</p>
+          <p className={`matchStatusLine ${statusTeamClass}`}>{result.status}</p>
           {result.press && <p className="pressSummary">{result.press.status}</p>}
           <small>Net strokes: {strokesText(session, match, strokes)}</small>
+        </div>
+      </section>
+
+      <section className="card scorecardStrip">
+        <div className="holeGrid">
+          {course.holes.map((h, i) => (
+            <button
+              key={h}
+              className={[
+                i === holeIdx ? "selected" : "",
+                result.holeResults[i] ? "complete" : "",
+                resultTeamClass(match, result.holeResults[i]),
+                result.holeResults[i] === "HALVE" ? "halved" : "",
+                result.press && i >= result.press.startIdx && i <= result.press.endIdx ? "pressHoleButton" : "",
+              ].filter(Boolean).join(" ")}
+              onClick={() => setHoleIdx(i)}
+            >
+              <strong>{h}</strong>
+              <span className={holeResultClasses(match, result.holeResults[i])}>
+                {holeResultLabel(match, result.holeResults[i])}
+              </span>
+            </button>
+          ))}
         </div>
       </section>
 
@@ -957,24 +1164,6 @@ function Score({ rows, updateRow, route, setRoute }) {
 
         <div className="twoButtons">
           <button disabled={holeIdx === 8} onClick={() => setHoleIdx(Math.min(8, holeIdx + 1))}>Next Hole</button>
-        </div>
-      </section>
-
-      <section className="card">
-        <h3>Quick scorecard</h3>
-        <div className="holeGrid">
-          {course.holes.map((h, i) => (
-            <button
-              key={h}
-              className={`${i === holeIdx ? "selected" : ""} ${result.press && i >= result.press.startIdx && i <= result.press.endIdx ? "pressHoleButton" : ""}`}
-              onClick={() => setHoleIdx(i)}
-            >
-              <strong>{h}</strong>
-              <span className={holeResultClasses(match, result.holeResults[i])}>
-                {holeResultLabel(match, result.holeResults[i])}
-              </span>
-            </button>
-          ))}
         </div>
       </section>
     </main>
@@ -1061,7 +1250,7 @@ function AdminGate({ children }) {
   );
 }
 
-function Admin({ rows, updateRow }) {
+function Admin({ rows, updateRow, settings, updateSettings }) {
   async function clearAllScores() {
     const confirmed = window.confirm("Clear every score and manual stroke override?");
     if (!confirmed) return;
@@ -1075,6 +1264,30 @@ function Admin({ rows, updateRow }) {
         manual_b: blank.manual_b,
       });
     }
+  }
+
+  function toggleSessionVisibility(sessionId) {
+    updateSettings((current) => {
+      const visible = new Set(current.visibleSessionIds);
+      if (visible.has(sessionId)) visible.delete(sessionId);
+      else visible.add(sessionId);
+      return { visibleSessionIds: Array.from(visible) };
+    });
+  }
+
+  function setSessionOrder(sessionOrder) {
+    updateSettings({ sessionOrder });
+  }
+
+  function moveSession(sessionId, direction) {
+    updateSettings((current) => {
+      const order = [...current.sessionOrder];
+      const idx = order.indexOf(sessionId);
+      const nextIdx = idx + direction;
+      if (idx < 0 || nextIdx < 0 || nextIdx >= order.length) return {};
+      [order[idx], order[nextIdx]] = [order[nextIdx], order[idx]];
+      return { sessionOrder: order };
+    });
   }
 
   function updateManual(matchId, side, raw) {
@@ -1100,11 +1313,49 @@ function Admin({ rows, updateRow }) {
       <section className="card">
         <h2>Commissioner Admin</h2>
         <p className="mutedText">Use this to correct scores and override match strokes.</p>
+        <div className="adminControls">
+          <h3>Session Visibility</h3>
+          <div className="visibilityGrid">
+            {SESSIONS.map((session) => (
+              <label className="checkRow" key={session.id}>
+                <input
+                  type="checkbox"
+                  checked={settings.visibleSessionIds.includes(session.id)}
+                  onChange={() => toggleSessionVisibility(session.id)}
+                />
+                <span>{session.shortLabel} · {session.format}</span>
+              </label>
+            ))}
+          </div>
+          <div className="presetButtons">
+            <button onClick={() => updateSettings({ visibleSessionIds: ["sat-am", "sat-pm"] })}>Hide Sunday</button>
+            <button onClick={() => updateSettings({ visibleSessionIds: SESSIONS.map((session) => session.id) })}>Reveal All</button>
+          </div>
+
+          <h3>Session Order</h3>
+          <div className="presetButtons">
+            <button onClick={() => setSessionOrder(["sat-am", "sat-pm", "sun-am", "sun-pm"])}>Saturday AM</button>
+            <button onClick={() => setSessionOrder(["sat-pm", "sat-am", "sun-am", "sun-pm"])}>Saturday PM</button>
+            <button onClick={() => setSessionOrder(["sun-am", "sun-pm", "sat-am", "sat-pm"])}>Sunday AM</button>
+            <button onClick={() => setSessionOrder(["sun-pm", "sun-am", "sat-am", "sat-pm"])}>Sunday PM</button>
+          </div>
+          <div className="orderList">
+            {orderedSessions(settings, { includeHidden: true }).map((session, idx, sessions) => (
+              <div className="orderRow" key={session.id}>
+                <span>{session.shortLabel} · {session.format}</span>
+                <div>
+                  <button disabled={idx === 0} onClick={() => moveSession(session.id, -1)}>Up</button>
+                  <button disabled={idx === sessions.length - 1} onClick={() => moveSession(session.id, 1)}>Down</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
         <button className="dangerButton" onClick={clearAllScores}>Clear All Scores</button>
       </section>
 
       <div className="sessionGrid">
-        {SESSIONS.map((session) => (
+        {orderedSessions(settings, { includeHidden: true }).map((session) => (
           <section className="card" key={session.id}>
             <div className="cardHeader">
               <div>
@@ -1188,6 +1439,7 @@ function Admin({ rows, updateRow }) {
 
 function App() {
   const { rows, updateRow, syncStatus } = useScores();
+  const { settings, updateSettings } = useAppSettings();
   const [route, setRoute] = useState(getInitialRoute);
 
   useEffect(() => {
@@ -1199,13 +1451,13 @@ function App() {
   return (
     <>
       <Header route={route} setRoute={setRoute} syncStatus={syncStatus} />
-      {route.view === "score" && <Score rows={rows} updateRow={updateRow} route={route} setRoute={setRoute} />}
+      {route.view === "score" && <Score rows={rows} updateRow={updateRow} route={route} setRoute={setRoute} settings={settings} />}
       {route.view === "admin" && (
         <AdminGate>
-          <Admin rows={rows} updateRow={updateRow} />
+          <Admin rows={rows} updateRow={updateRow} settings={settings} updateSettings={updateSettings} />
         </AdminGate>
       )}
-      {route.view === "board" && <Board rows={rows} />}
+      {route.view === "board" && <Board rows={rows} settings={settings} setRoute={setRoute} />}
     </>
   );
 }
