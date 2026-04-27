@@ -1,0 +1,560 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #0a0a0a;
+  color: #f5f5f5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #0a0a0a;
+  color: #f5f5f5;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  background: #f5f5f5;
+  color: #0a0a0a;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 14px 14px;
+  border-bottom: 1px solid #262626;
+  background: rgba(10, 10, 10, 0.95);
+  backdrop-filter: blur(12px);
+}
+
+.brand {
+  font-size: 28px;
+  font-weight: 950;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.eyebrow {
+  color: #a3a3a3;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.nav {
+  display: flex;
+  gap: 6px;
+}
+
+.nav button {
+  border: 1px solid #404040;
+  background: #171717;
+  color: #f5f5f5;
+  padding: 10px 11px;
+  border-radius: 14px;
+  font-size: 13px;
+}
+
+.nav button.active {
+  background: #f5f5f5;
+  color: #0a0a0a;
+  border-color: #f5f5f5;
+}
+
+.sync {
+  grid-column: 1 / -1;
+  justify-self: start;
+  padding: 5px 9px;
+  border-radius: 99px;
+  background: #262626;
+  color: #d4d4d4;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.sync.live {
+  background: #14532d;
+  color: #dcfce7;
+}
+
+.sync.error {
+  background: #7f1d1d;
+  color: #fee2e2;
+}
+
+.page {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 16px 14px 80px;
+}
+
+.page.narrow {
+  max-width: 620px;
+}
+
+.card,
+.scoreHero {
+  border: 1px solid #262626;
+  background: #171717;
+  border-radius: 28px;
+  padding: 16px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+}
+
+.scoreHero {
+  margin-bottom: 16px;
+}
+
+.scoreTitle,
+.cardHeader,
+.sideScorerTop,
+.holeNav,
+.twoButtons {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.scoreTitle {
+  margin-bottom: 12px;
+  font-weight: 800;
+}
+
+.scoreTitle span:last-child,
+.badge {
+  color: #d4d4d4;
+  background: #262626;
+  padding: 6px 9px;
+  border-radius: 99px;
+  font-size: 12px;
+}
+
+.scoreBoxes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.scoreBox {
+  background: #0a0a0a;
+  border-radius: 24px;
+  padding: 18px 10px;
+  text-align: center;
+}
+
+.scoreBox div {
+  color: #a3a3a3;
+  font-size: 14px;
+}
+
+.scoreBox strong {
+  display: block;
+  font-size: 58px;
+  line-height: 1;
+  letter-spacing: -0.06em;
+}
+
+.projectionPanel {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #303030;
+  border-radius: 22px;
+  background: #0a0a0a;
+}
+
+.projectionTitle {
+  margin-bottom: 9px;
+}
+
+.projectionBoxes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.projectionBoxes div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid #262626;
+  border-radius: 16px;
+  background: #171717;
+}
+
+.projectionBoxes span {
+  color: #a3a3a3;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.projectionBoxes strong {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.projectionPanel small {
+  display: block;
+  margin-top: 9px;
+}
+
+.sessionGrid {
+  display: grid;
+  gap: 16px;
+}
+
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+.card h2 {
+  font-size: 22px;
+}
+
+.card p,
+.mutedText,
+.cardHeader p,
+.matchSummary p {
+  color: #a3a3a3;
+}
+
+.matchList {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.matchCard {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  background: #0a0a0a;
+  border: 1px solid #262626;
+  border-radius: 20px;
+  padding: 13px;
+}
+
+.matchCard strong {
+  display: block;
+  line-height: 1.25;
+}
+
+.matchCard small,
+.meta,
+small {
+  color: #737373;
+  font-size: 12px;
+}
+
+.matchCard .right {
+  text-align: right;
+}
+
+.meta {
+  grid-column: 1 / -1;
+}
+
+.select {
+  width: 100%;
+  min-height: 54px;
+  border: 1px solid #404040;
+  border-radius: 18px;
+  background: #0a0a0a;
+  color: #f5f5f5;
+  padding: 0 14px;
+  margin-top: 8px;
+}
+
+.matchSummary {
+  background: #0a0a0a;
+  border-radius: 22px;
+  padding: 14px;
+  margin-top: 14px;
+}
+
+.matchSummary h2 {
+  margin: 4px 0;
+  font-size: 21px;
+}
+
+.holeCard {
+  margin-top: 14px;
+}
+
+.holeNav button {
+  width: 54px;
+  height: 54px;
+  border-radius: 18px;
+  border: 1px solid #404040;
+  background: #171717;
+  color: #f5f5f5;
+  font-size: 32px;
+  line-height: 1;
+}
+
+.holeNav div {
+  text-align: center;
+}
+
+.holeNav strong {
+  display: block;
+  font-size: 64px;
+  line-height: 0.95;
+  letter-spacing: -0.07em;
+}
+
+.sideScorer {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid #262626;
+  border-radius: 24px;
+  background: #0a0a0a;
+}
+
+.sideScorer.hasStroke {
+  border-color: #facc15;
+  background: #221f0b;
+  box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.45), 0 0 0 1px rgba(250, 204, 21, 0.2);
+}
+
+.sideScorer.hasStroke h3 {
+  color: #fef08a;
+}
+
+.sideScorer.hasStroke small {
+  color: #fde047;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.sideScorerTop strong {
+  font-size: 38px;
+  line-height: 1;
+}
+
+.strokeBadge {
+  margin-left: auto;
+  padding: 7px 9px;
+  border-radius: 10px;
+  background: #facc15;
+  color: #111827;
+  font-size: 11px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.scoreGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.scoreButton {
+  height: 58px;
+  border-radius: 18px;
+  border: 1px solid #404040;
+  background: #171717;
+  color: #f5f5f5;
+  font-size: 21px;
+}
+
+.scoreButton.selected {
+  background: #f5f5f5;
+  color: #0a0a0a;
+  border-color: #f5f5f5;
+}
+
+.twoButtons {
+  margin-top: 16px;
+}
+
+.twoButtons button,
+.secondary {
+  flex: 1;
+  height: 52px;
+  border-radius: 18px;
+}
+
+.secondary {
+  border: 1px solid #404040;
+  background: #171717;
+  color: #f5f5f5;
+}
+
+.holeGrid {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.holeGrid button {
+  min-width: 0;
+  border-radius: 13px;
+  border: 1px solid #262626;
+  background: #0a0a0a;
+  color: #f5f5f5;
+  padding: 8px 3px;
+}
+
+.holeGrid button.selected {
+  background: #f5f5f5;
+  color: #0a0a0a;
+}
+
+.holeGrid strong,
+.holeGrid span {
+  display: block;
+  font-size: 12px;
+}
+
+.holeGrid strong {
+  color: #a3a3a3;
+}
+
+.holeResult {
+  margin-top: 3px;
+  font-size: 15px;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.holeResult.A {
+  color: #f5f5f5;
+}
+
+.holeResult.B {
+  color: #d4d4d4;
+}
+
+.holeResult.HALVE,
+.holeResult.empty {
+  color: #737373;
+}
+
+.holeGrid button.selected .holeResult,
+.holeGrid button.selected strong {
+  color: #0a0a0a;
+}
+
+.adminMatch {
+  margin-top: 14px;
+  padding: 13px;
+  background: #0a0a0a;
+  border: 1px solid #262626;
+  border-radius: 20px;
+}
+
+.adminMatch > strong,
+.adminMatch > small {
+  display: block;
+}
+
+.manualGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+label {
+  color: #a3a3a3;
+  font-size: 12px;
+}
+
+input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid #404040;
+  border-radius: 13px;
+  background: #171717;
+  color: #f5f5f5;
+  padding: 0 10px;
+}
+
+.adminTableWrap {
+  overflow-x: auto;
+  margin-top: 10px;
+}
+
+.adminTable {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.adminTable th,
+.adminTable td {
+  border-bottom: 1px solid #262626;
+  padding: 6px;
+  text-align: center;
+}
+
+.adminTable th:first-child,
+.adminTable td:first-child {
+  text-align: left;
+  width: 130px;
+}
+
+.adminTable input {
+  width: 42px;
+  min-height: 36px;
+  text-align: center;
+  padding: 0;
+}
+
+@media (min-width: 760px) {
+  .topbar {
+    grid-template-columns: 1fr auto auto;
+    padding: 22px 28px;
+  }
+
+  .sync {
+    grid-column: auto;
+  }
+
+  .brand {
+    font-size: 46px;
+  }
+
+  .page {
+    padding: 24px 28px 90px;
+  }
+
+  .sessionGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .scoreBox strong {
+    font-size: 82px;
+  }
+}
