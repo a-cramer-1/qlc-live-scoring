@@ -51,6 +51,20 @@ button:disabled {
   backdrop-filter: blur(12px);
 }
 
+.brandBlock {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.brandLogo {
+  width: 76px;
+  height: 54px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
 .brand {
   font-size: 28px;
   font-weight: 950;
@@ -142,12 +156,16 @@ button:disabled {
   gap: 12px;
 }
 
+.sideScorerTop {
+  flex-wrap: wrap;
+}
+
 .scoreTitle {
   margin-bottom: 12px;
   font-weight: 800;
 }
 
-.scoreTitle span:last-child,
+.scoreTitle span + span,
 .badge {
   color: #d4d4d4;
   background: #262626;
@@ -163,11 +181,27 @@ button:disabled {
 }
 
 .scoreBox {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
   border: 1px solid #262626;
   background: #0a0a0a;
   border-radius: 24px;
-  padding: 18px 10px;
+  min-height: 132px;
+  padding: 0 10px;
   text-align: center;
+}
+
+.scoreBox img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0.3;
+  transform: scale(1.26);
+  pointer-events: none;
 }
 
 .scoreBoxes .scoreBox:first-child,
@@ -183,15 +217,22 @@ button:disabled {
 }
 
 .scoreBox div {
+  position: relative;
+  z-index: 1;
   color: #a3a3a3;
   font-size: 14px;
+  font-weight: 900;
+  text-shadow: 0 2px 8px #000;
 }
 
 .scoreBox strong {
+  position: relative;
+  z-index: 1;
   display: block;
   font-size: 58px;
   line-height: 1;
   letter-spacing: -0.06em;
+  text-shadow: 0 3px 14px #000;
 }
 
 .projectionPanel {
@@ -282,17 +323,32 @@ p {
   text-align: left;
 }
 
+.pressCard {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  width: calc(100% - 22px);
+  margin: -2px 0 4px 22px;
+  padding: 12px;
+  border: 1px dashed #a78bfa;
+  border-radius: 18px;
+  background: linear-gradient(90deg, rgba(124, 58, 237, 0.24), #0a0a0a 62%);
+  color: #f5f5f5;
+}
+
 .matchCard:focus-visible {
   outline: 2px solid #f5f5f5;
   outline-offset: 3px;
 }
 
-.matchCard.leading-jailbirds {
+.matchCard.leading-jailbirds,
+.pressCard.leading-jailbirds {
   border-color: rgba(37, 99, 235, 0.75);
   background: linear-gradient(90deg, var(--jailbirds-soft), #0a0a0a 58%);
 }
 
-.matchCard.leading-zookeepers {
+.matchCard.leading-zookeepers,
+.pressCard.leading-zookeepers {
   border-color: rgba(22, 163, 74, 0.75);
   background: linear-gradient(90deg, var(--zookeepers-soft), #0a0a0a 58%);
 }
@@ -301,32 +357,44 @@ p {
   border-color: #737373;
 }
 
-.matchCard.leading-jailbirds .right strong {
+.matchCard.leading-jailbirds .right strong,
+.pressCard.leading-jailbirds .right strong {
   color: #93c5fd;
 }
 
-.matchCard.leading-zookeepers .right strong {
+.matchCard.leading-zookeepers .right strong,
+.pressCard.leading-zookeepers .right strong {
   color: #86efac;
 }
 
-.matchCard strong {
+.matchCard strong,
+.pressCard strong {
   display: block;
   line-height: 1.25;
 }
 
 .matchCard small,
+.pressCard small,
 .meta,
 small {
   color: #737373;
   font-size: 12px;
 }
 
-.matchCard .right {
+.matchCard .right,
+.pressCard .right {
   text-align: right;
 }
 
 .meta {
   grid-column: 1 / -1;
+}
+
+.pressStatus {
+  grid-column: 1 / -1;
+  color: #ddd6fe;
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .boardMatchDetails {
@@ -352,6 +420,16 @@ small {
   background: rgba(10, 10, 10, 0.7);
 }
 
+.pressHoleGrid {
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(auto-fit, minmax(38px, 1fr));
+}
+
+.boardHole.pressHole {
+  border-color: rgba(167, 139, 250, 0.45);
+  background: rgba(76, 29, 149, 0.18);
+}
+
 .select {
   width: 100%;
   min-height: 54px;
@@ -375,8 +453,32 @@ small {
   font-size: 21px;
 }
 
+.pressSummary {
+  margin-top: 5px;
+  color: #ddd6fe !important;
+  font-weight: 900;
+}
+
 .holeCard {
   margin-top: 14px;
+}
+
+.holeCard.pressScoring {
+  border-color: rgba(167, 139, 250, 0.78);
+  background: linear-gradient(180deg, rgba(76, 29, 149, 0.36), #171717 42%);
+}
+
+.pressNotice {
+  margin-top: 12px;
+  padding: 9px 11px;
+  border: 1px solid rgba(167, 139, 250, 0.55);
+  border-radius: 14px;
+  background: rgba(76, 29, 149, 0.35);
+  color: #ddd6fe;
+  font-size: 12px;
+  font-weight: 950;
+  text-align: center;
+  text-transform: uppercase;
 }
 
 .holeNav button {
@@ -409,10 +511,31 @@ small {
   background: #0a0a0a;
 }
 
+.sideScorer.team-jailbirds {
+  border-color: rgba(37, 99, 235, 0.6);
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.28), #0a0a0a 62%);
+}
+
+.sideScorer.team-zookeepers {
+  border-color: rgba(22, 163, 74, 0.6);
+  background: linear-gradient(180deg, rgba(22, 163, 74, 0.28), #0a0a0a 62%);
+}
+
 .sideScorer.hasStroke {
   border-color: #facc15;
-  background: #221f0b;
   box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.45), 0 0 0 1px rgba(250, 204, 21, 0.2);
+}
+
+.sideScorer.team-jailbirds.hasStroke {
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.32), #171309 70%);
+}
+
+.sideScorer.team-zookeepers.hasStroke {
+  background: linear-gradient(180deg, rgba(22, 163, 74, 0.32), #171309 70%);
+}
+
+.sideScorer.winningScore {
+  box-shadow: inset 0 0 0 1px rgba(245, 245, 245, 0.45), 0 0 0 1px rgba(245, 245, 245, 0.35);
 }
 
 .sideScorer.hasStroke h3 {
@@ -426,16 +549,30 @@ small {
 }
 
 .sideScorerTop strong {
+  margin-left: auto;
   font-size: 38px;
   line-height: 1;
 }
 
+.sideScorerTop > div:first-child {
+  flex: 1 1 170px;
+}
+
 .strokeBadge {
-  margin-left: auto;
   padding: 7px 9px;
   border-radius: 10px;
   background: #facc15;
   color: #111827;
+  font-size: 11px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.winnerBadge {
+  padding: 7px 9px;
+  border-radius: 10px;
+  background: #f5f5f5;
+  color: #0a0a0a;
   font-size: 11px;
   font-weight: 950;
   text-transform: uppercase;
@@ -498,6 +635,16 @@ small {
 
 .holeGrid button.selected {
   background: #f5f5f5;
+  color: #0a0a0a;
+}
+
+.holeGrid button.pressHoleButton {
+  border-color: rgba(167, 139, 250, 0.52);
+  background: rgba(76, 29, 149, 0.22);
+}
+
+.holeGrid button.pressHoleButton.selected {
+  background: #ddd6fe;
   color: #0a0a0a;
 }
 
@@ -577,6 +724,66 @@ small {
   border-radius: 20px;
 }
 
+.dangerButton {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 14px;
+  border: 1px solid #991b1b;
+  border-radius: 16px;
+  background: #7f1d1d;
+  color: #fee2e2;
+}
+
+.adminLockBar {
+  position: sticky;
+  top: 103px;
+  z-index: 9;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 10px 14px 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.adminLockBar span {
+  color: #a3a3a3;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.adminLockBar button {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid #404040;
+  background: #171717;
+  color: #f5f5f5;
+  font-size: 12px;
+}
+
+.adminLogin h2 {
+  margin-top: 8px;
+}
+
+.adminLogin form {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.adminLogin button {
+  min-height: 52px;
+  border-radius: 16px;
+}
+
+.formError {
+  color: #fecaca;
+  font-weight: 800;
+}
+
 .adminMatch > strong,
 .adminMatch > small {
   display: block;
@@ -648,6 +855,11 @@ input {
 
   .brand {
     font-size: 46px;
+  }
+
+  .brandLogo {
+    width: 104px;
+    height: 72px;
   }
 
   .page {

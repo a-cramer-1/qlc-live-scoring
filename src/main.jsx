@@ -103,6 +103,8 @@ const SESSIONS = [
 
 const MATCHES = SESSIONS.flatMap((session) => session.matches.map((match) => ({ ...match, session })));
 const STORAGE_KEY = "qlc-live-scoring-fallback-v2";
+const ADMIN_AUTH_KEY = "qlc-admin-auth";
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || "qlc2026";
 const FORFEIT = "X";
 
 function playerHandicap(player) {
@@ -272,6 +274,28 @@ function strokeMap(strokes, course) {
   return map;
 }
 
+function sideHoleState(scores, maps, slotCount, holeIdx) {
+  const slots = Array.from({ length: slotCount }, (_, slotIdx) => {
+    const score = getScore(scores, slotCount, slotIdx, holeIdx);
+    return {
+      score,
+      known: score !== null,
+      forfeited: score === FORFEIT,
+      net: score === null || score === FORFEIT ? null : score - maps[slotIdx][holeIdx],
+    };
+  });
+
+  if (slots.some((slot) => !slot.known)) return { known: false, forfeited: false, net: null, slots };
+
+  const playableNets = slots.map((slot) => slot.net).filter((net) => net !== null);
+  return {
+    known: true,
+    forfeited: playableNets.length === 0,
+    net: playableNets.length ? Math.min(...playableNets) : null,
+    slots,
+  };
+}
+
 function blankRow(match) {
   const session = match.session;
   return {
@@ -317,6 +341,85 @@ function saveLocalRows(rows) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
 }
 
+function summarizeMatchSegment(match, holeResults, startIdx, endIdx, pointsValue, options = {}) {
+  const totalHoles = endIdx - startIdx + 1;
+  let holesWonA = 0;
+  let holesWonB = 0;
+  let completed = 0;
+  let decisionIdx = null;
+  let compact = "—";
+  let status = "Not started";
+  let pointsA = 0;
+  let pointsB = 0;
+  const prefix = options.prefix ? `${options.prefix} ` : "";
+
+  for (let holeIdx = startIdx; holeIdx <= endIdx; holeIdx++) {
+    const result = holeResults[holeIdx];
+    if (!result) break;
+
+    completed++;
+    if (result === "A") holesWonA++;
+    if (result === "B") holesWonB++;
+
+    const diff = holesWonA - holesWonB;
+    const remaining = endIdx - holeIdx;
+    if (Math.abs(diff) > remaining) {
+      const winner = diff > 0 ? "A" : "B";
+      compact = `${Math.abs(diff)} & ${remaining}`;
+      status = `${sideLabel(winner === "A" ? match.a : match.b)} wins ${prefix}${compact}`;
+      pointsA = winner === "A" ? pointsValue : 0;
+      pointsB = winner === "B" ? pointsValue : 0;
+      decisionIdx = holeIdx;
+      break;
+    }
+  }
+
+  const diff = holesWonA - holesWonB;
+
+  if (decisionIdx === null) {
+    if (completed === totalHoles) {
+      if (diff === 0) {
+        status = options.halvedStatus || `${prefix}Halved`.trim();
+        compact = options.halvedCompact || "½";
+        pointsA = options.halvedPointsA ?? pointsValue / 2;
+        pointsB = options.halvedPointsB ?? pointsValue / 2;
+      } else {
+        const winner = diff > 0 ? "A" : "B";
+        compact = "1 UP";
+        status = `${sideLabel(winner === "A" ? match.a : match.b)} wins ${prefix}${compact}`;
+        pointsA = winner === "A" ? pointsValue : 0;
+        pointsB = winner === "B" ? pointsValue : 0;
+        decisionIdx = endIdx;
+      }
+    } else if (completed > 0) {
+      if (diff === 0) {
+        compact = `${prefix}AS thru ${completed}`.trim();
+        status = `${prefix}All square thru ${completed}`.trim();
+      } else {
+        compact = `${prefix}${Math.abs(diff)} UP thru ${completed}`.trim();
+        status = `${sideLabel(diff > 0 ? match.a : match.b)} ${compact}`;
+      }
+    } else if (options.notStartedStatus) {
+      status = options.notStartedStatus;
+      compact = options.notStartedCompact || compact;
+    }
+  }
+
+  return {
+    startIdx,
+    endIdx,
+    completed,
+    totalHoles,
+    diff,
+    decisionIdx,
+    status,
+    compact,
+    pointsA,
+    pointsB,
+    decided: pointsA + pointsB > 0,
+  };
+}
+
 function computeMatch(session, match, row) {
   const course = COURSE[session.nine];
   const strokes = matchStrokes(session, match, row);
@@ -328,85 +431,57 @@ function computeMatch(session, match, row) {
   const bMaps = isBestBall(session)
     ? strokes.b.map(({ strokes: playerStrokes }) => strokeMap(playerStrokes, course))
     : [strokeMap(strokes.b, course)];
-  let holesWonA = 0;
-  let holesWonB = 0;
-  let completed = 0;
   const holeResults = [];
 
-  function sideNet(scores, maps, slotCount, holeIdx) {
-    const values = Array.from({ length: slotCount }, (_, slotIdx) => getScore(scores, slotCount, slotIdx, holeIdx));
-    if (values.some((value) => value === null)) return { known: false, forfeited: false, net: null };
-    const nets = values
-      .map((value, slotIdx) => (value === FORFEIT ? null : value - maps[slotIdx][holeIdx]))
-      .filter((value) => value !== null);
-    return { known: true, forfeited: nets.length === 0, net: nets.length ? Math.min(...nets) : null };
-  }
-
   for (let i = 0; i < 9; i++) {
-    const aNet = sideNet(row.gross_a, aMaps, aSlotCount, i);
-    const bNet = sideNet(row.gross_b, bMaps, bSlotCount, i);
+    const aNet = sideHoleState(row.gross_a, aMaps, aSlotCount, i);
+    const bNet = sideHoleState(row.gross_b, bMaps, bSlotCount, i);
     if (!aNet.known || !bNet.known) {
       holeResults.push(null);
       continue;
     }
-    completed++;
-
     if (aNet.forfeited && bNet.forfeited) {
       holeResults.push("HALVE");
     } else if (aNet.forfeited) {
-      holesWonB++;
       holeResults.push("B");
     } else if (bNet.forfeited) {
-      holesWonA++;
       holeResults.push("A");
     } else if (aNet.net < bNet.net) {
-      holesWonA++;
       holeResults.push("A");
     } else if (bNet.net < aNet.net) {
-      holesWonB++;
       holeResults.push("B");
     } else {
       holeResults.push("HALVE");
     }
   }
 
-  const diff = holesWonA - holesWonB;
-  const remaining = 9 - completed;
-  let status = "Not started";
-  let compact = "—";
-  let pointsA = 0;
-  let pointsB = 0;
+  const base = summarizeMatchSegment(match, holeResults, 0, 8, 1);
+  const pressStartIdx = base.decided && base.decisionIdx !== null && base.decisionIdx < 8 ? base.decisionIdx + 1 : null;
+  const press = pressStartIdx === null ? null : summarizeMatchSegment(match, holeResults, pressStartIdx, 8, 0.5, {
+    prefix: "press",
+    notStartedStatus: `Press open for holes ${course.holes.slice(pressStartIdx).join(", ")}`,
+    notStartedCompact: "Press open",
+    halvedStatus: "Press halved",
+    halvedCompact: "Press AS",
+    halvedPointsA: 0,
+    halvedPointsB: 0,
+  });
 
-  if (completed > 0) {
-    if (Math.abs(diff) > remaining) {
-      const winner = diff > 0 ? "A" : "B";
-      compact = `${Math.abs(diff)} & ${remaining}`;
-      status = `${winner === "A" ? sideLabel(match.a) : sideLabel(match.b)} wins ${compact}`;
-      pointsA = diff > 0 ? 1 : 0;
-      pointsB = diff > 0 ? 0 : 1;
-    } else if (completed === 9) {
-      if (diff === 0) {
-        status = "Halved";
-        compact = "½";
-        pointsA = 0.5;
-        pointsB = 0.5;
-      } else {
-        const winner = diff > 0 ? "A" : "B";
-        compact = "1 UP";
-        status = `${winner === "A" ? sideLabel(match.a) : sideLabel(match.b)} wins 1 UP`;
-        pointsA = diff > 0 ? 1 : 0;
-        pointsB = diff > 0 ? 0 : 1;
-      }
-    } else if (diff === 0) {
-      status = `All square thru ${completed}`;
-      compact = `AS thru ${completed}`;
-    } else {
-      compact = `${Math.abs(diff)} UP thru ${completed}`;
-      status = `${diff > 0 ? sideLabel(match.a) : sideLabel(match.b)} ${compact}`;
-    }
-  }
-
-  return { status, compact, pointsA, pointsB, completed, diff, holeResults, aMaps, bMaps, aMap: aMaps[0], bMap: bMaps[0] };
+  return {
+    status: base.status,
+    compact: base.compact,
+    pointsA: base.pointsA,
+    pointsB: base.pointsB,
+    completed: base.completed,
+    diff: base.diff,
+    holeResults,
+    aMaps,
+    bMaps,
+    aMap: aMaps[0],
+    bMap: bMaps[0],
+    base,
+    press,
+  };
 }
 
 function useScores() {
@@ -516,9 +591,8 @@ function Header({ route, setRoute, syncStatus }) {
 
   return (
     <header className="topbar">
-      <div>
-        <div className="eyebrow">QLC Live Scoring</div>
-        <div className="brand">The QLC</div>
+      <div className="brandBlock">
+        <img className="brandLogo" src="/assets/qlc-white.png" alt="" />
       </div>
       <div className="nav">
         <button className={route.view === "board" ? "active" : ""} onClick={() => nav("board")}>Board</button>
@@ -550,6 +624,17 @@ function projectedSidePoints(result) {
   return { pointsA: 0.5, pointsB: 0.5, counted: true, active: true };
 }
 
+function projectedPressSidePoints(press) {
+  if (!press) return { pointsA: 0, pointsB: 0, counted: false, active: false };
+  const decided = press.pointsA + press.pointsB > 0;
+  if (decided) return { pointsA: press.pointsA, pointsB: press.pointsB, counted: true, active: false };
+  if (press.completed === 0) return { pointsA: 0, pointsB: 0, counted: false, active: false };
+  if (press.completed === press.totalHoles && press.diff === 0) return { pointsA: 0, pointsB: 0, counted: true, active: false };
+  if (press.diff > 0) return { pointsA: 0.5, pointsB: 0, counted: true, active: true };
+  if (press.diff < 0) return { pointsA: 0, pointsB: 0.5, counted: true, active: true };
+  return { pointsA: 0, pointsB: 0, counted: true, active: true };
+}
+
 function scoreTotals(rows) {
   const actual = { jailbirds: 0, zookeepers: 0 };
   const projected = { jailbirds: 0, zookeepers: 0 };
@@ -562,11 +647,20 @@ function scoreTotals(rows) {
       const result = computeMatch(session, match, rows[match.id]);
       addSidePointsToTeams(match, result.pointsA, result.pointsB, actual);
       decided += result.pointsA + result.pointsB;
+      if (result.press) {
+        addSidePointsToTeams(match, result.press.pointsA, result.press.pointsB, actual);
+        decided += result.press.pointsA + result.press.pointsB;
+      }
 
       const projection = projectedSidePoints(result);
       addSidePointsToTeams(match, projection.pointsA, projection.pointsB, projected);
       if (projection.counted) projectedCount += projection.pointsA + projection.pointsB;
       if (projection.active) active++;
+
+      const pressProjection = projectedPressSidePoints(result.press);
+      addSidePointsToTeams(match, pressProjection.pointsA, pressProjection.pointsB, projected);
+      if (pressProjection.counted) projectedCount += pressProjection.pointsA + pressProjection.pointsB;
+      if (pressProjection.active) active++;
     });
   });
 
@@ -580,15 +674,14 @@ function OverallScore({ rows }) {
     <section className="scoreHero">
       <div className="scoreTitle">
         <span>Overall Score</span>
-        <span>{totals.decided}/{MATCHES.length} pts decided</span>
       </div>
       <div className="scoreBoxes">
         <div className="scoreBox">
-          <div>Jailbirds</div>
+          <img src="/assets/jailbirds.png" alt="" />
           <strong>{totals.actual.jailbirds}</strong>
         </div>
         <div className="scoreBox">
-          <div>Zookeepers</div>
+          <img src="/assets/zookeepers.png" alt="" />
           <strong>{totals.actual.zookeepers}</strong>
         </div>
       </div>
@@ -607,7 +700,6 @@ function OverallScore({ rows }) {
             <strong>{totals.projected.zookeepers}</strong>
           </div>
         </div>
-        <small>{totals.projectedCount}/{MATCHES.length} pts projected from decided and active matches</small>
       </div>
     </section>
   );
@@ -627,6 +719,40 @@ function BoardMatchDetails({ session, match, result }) {
             </span>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function PressBoardCard({ session, match, result }) {
+  const course = COURSE[session.nine];
+  const press = result.press;
+  if (!press) return null;
+
+  return (
+    <div className={`pressCard ${leadingTeamClass(match, press)}`}>
+      <div>
+        <small>Press · 0.5 pt · Holes {course.holes.slice(press.startIdx, press.endIdx + 1).join("-")}</small>
+        <strong>{sideLabel(match.a)}</strong>
+        <strong className="mutedText">{sideLabel(match.b)}</strong>
+      </div>
+      <div className="right">
+        <strong>{press.compact}</strong>
+        <small>{press.completed}/{press.totalHoles} holes</small>
+      </div>
+      <div className="pressStatus">{press.status}</div>
+      <div className="boardHoleGrid pressHoleGrid">
+        {course.holes.slice(press.startIdx, press.endIdx + 1).map((hole, offset) => {
+          const holeIdx = press.startIdx + offset;
+          return (
+            <div className="boardHole pressHole" key={hole}>
+              <small>{hole}</small>
+              <span className={holeResultClasses(match, result.holeResults[holeIdx])}>
+                {holeResultLabel(match, result.holeResults[holeIdx])}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -655,32 +781,34 @@ function Board({ rows }) {
                 const isExpanded = expandedMatchId === match.id;
                 const leadingClass = leadingTeamClass(match, result);
                 return (
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    className={`matchCard ${leadingClass} ${isExpanded ? "expanded" : ""}`}
-                    key={match.id}
-                    onClick={() => setExpandedMatchId(isExpanded ? null : match.id)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        setExpandedMatchId(isExpanded ? null : match.id);
-                      }
-                    }}
-                    aria-expanded={isExpanded}
-                  >
-                    <div>
-                      <small>Tee {match.tee}</small>
-                      <strong>{sideLabel(match.a)}</strong>
-                      <strong className="mutedText">{sideLabel(match.b)}</strong>
+                  <React.Fragment key={match.id}>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      className={`matchCard ${leadingClass} ${isExpanded ? "expanded" : ""}`}
+                      onClick={() => setExpandedMatchId(isExpanded ? null : match.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setExpandedMatchId(isExpanded ? null : match.id);
+                        }
+                      }}
+                      aria-expanded={isExpanded}
+                    >
+                      <div>
+                        <small>Tee {match.tee}</small>
+                        <strong>{sideLabel(match.a)}</strong>
+                        <strong className="mutedText">{sideLabel(match.b)}</strong>
+                      </div>
+                      <div className="right">
+                        <strong>{result.compact}</strong>
+                        <small>thru {result.completed}</small>
+                      </div>
+                      <div className="meta">Strokes: {strokesText(session, match, strokes)}{strokes.manual ? " · manual" : ""}</div>
+                      {isExpanded && <BoardMatchDetails session={session} match={match} result={result} />}
                     </div>
-                    <div className="right">
-                      <strong>{result.compact}</strong>
-                      <small>thru {result.completed}</small>
-                    </div>
-                    <div className="meta">Strokes: {strokesText(session, match, strokes)}{strokes.manual ? " · manual" : ""}</div>
-                    {isExpanded && <BoardMatchDetails session={session} match={match} result={result} />}
-                  </div>
+                    <PressBoardCard session={session} match={match} result={result} />
+                  </React.Fragment>
                 );
               })}
             </div>
@@ -723,6 +851,17 @@ function strokesText(session, match, strokes) {
   return `${sideLabel(match.a)} ${strokes.a}, ${sideLabel(match.b)} ${strokes.b}`;
 }
 
+function winningScoreForSlot(row, result, side, slotCount, slotIdx, holeIdx) {
+  const winningResult = side === "a" ? "A" : "B";
+  if (result.holeResults[holeIdx] !== winningResult) return false;
+
+  const scores = side === "a" ? row.gross_a : row.gross_b;
+  const maps = side === "a" ? result.aMaps : result.bMaps;
+  const state = sideHoleState(scores, maps, slotCount, holeIdx);
+  const slot = state.slots[slotIdx];
+  return state.known && !state.forfeited && !slot.forfeited && slot.net === state.net;
+}
+
 function Score({ rows, updateRow, route, setRoute }) {
   const selectedMatchId = route.matchId || MATCHES[0].id;
   const found = MATCHES.find((m) => m.id === selectedMatchId) || MATCHES[0];
@@ -741,6 +880,7 @@ function Score({ rows, updateRow, route, setRoute }) {
   const options = scoreOptions(par);
   const aSlotCount = sideSlotCount(session, match.a);
   const bSlotCount = sideSlotCount(session, match.b);
+  const isPressHole = result.press && holeIdx >= result.press.startIdx && holeIdx <= result.press.endIdx;
 
   function selectMatch(matchId) {
     const next = { view: "score", matchId };
@@ -769,11 +909,12 @@ function Score({ rows, updateRow, route, setRoute }) {
           <small>{session.label} · {session.format} · {course.label}</small>
           <h2>{sideLabel(match.a)} vs {sideLabel(match.b)}</h2>
           <p>{result.status}</p>
+          {result.press && <p className="pressSummary">{result.press.status}</p>}
           <small>Net strokes: {strokesText(session, match, strokes)}</small>
         </div>
       </section>
 
-      <section className="card holeCard">
+      <section className={`card holeCard ${isPressHole ? "pressScoring" : ""}`}>
         <div className="holeNav">
           <button disabled={holeIdx === 0} onClick={() => setHoleIdx(holeIdx - 1)}>‹</button>
           <div>
@@ -783,13 +924,16 @@ function Score({ rows, updateRow, route, setRoute }) {
           </div>
           <button disabled={holeIdx === 8} onClick={() => setHoleIdx(holeIdx + 1)}>›</button>
         </div>
+        {isPressHole && <div className="pressNotice">Press hole · 0.5 pt match</div>}
 
         {Array.from({ length: aSlotCount }, (_, slotIdx) => (
           <SideScorer
             key={`a-${slotIdx}`}
             label={slotLabel(session, match.a, slotIdx)}
             side={sideLabel(match.a)}
+            teamName={sideTeamName(match, "A")}
             stroke={result.aMaps[slotIdx][holeIdx] > 0}
+            winningScore={winningScoreForSlot(row, result, "a", aSlotCount, slotIdx, holeIdx)}
             current={getScore(row.gross_a, aSlotCount, slotIdx, holeIdx)}
             options={options}
             onSelect={(n) => setGross("a", slotIdx, n)}
@@ -801,7 +945,9 @@ function Score({ rows, updateRow, route, setRoute }) {
             key={`b-${slotIdx}`}
             label={slotLabel(session, match.b, slotIdx)}
             side={sideLabel(match.b)}
+            teamName={sideTeamName(match, "B")}
             stroke={result.bMaps[slotIdx][holeIdx] > 0}
+            winningScore={winningScoreForSlot(row, result, "b", bSlotCount, slotIdx, holeIdx)}
             current={getScore(row.gross_b, bSlotCount, slotIdx, holeIdx)}
             options={options}
             onSelect={(n) => setGross("b", slotIdx, n)}
@@ -818,7 +964,11 @@ function Score({ rows, updateRow, route, setRoute }) {
         <h3>Quick scorecard</h3>
         <div className="holeGrid">
           {course.holes.map((h, i) => (
-            <button key={h} className={i === holeIdx ? "selected" : ""} onClick={() => setHoleIdx(i)}>
+            <button
+              key={h}
+              className={`${i === holeIdx ? "selected" : ""} ${result.press && i >= result.press.startIdx && i <= result.press.endIdx ? "pressHoleButton" : ""}`}
+              onClick={() => setHoleIdx(i)}
+            >
               <strong>{h}</strong>
               <span className={holeResultClasses(match, result.holeResults[i])}>
                 {holeResultLabel(match, result.holeResults[i])}
@@ -831,14 +981,15 @@ function Score({ rows, updateRow, route, setRoute }) {
   );
 }
 
-function SideScorer({ label, side, stroke, current, options, onSelect, onClear }) {
+function SideScorer({ label, side, teamName, stroke, winningScore, current, options, onSelect, onClear }) {
   return (
-    <div className={`sideScorer ${stroke ? "hasStroke" : ""}`}>
+    <div className={`sideScorer team-${teamKey(teamName)} ${stroke ? "hasStroke" : ""} ${winningScore ? "winningScore" : ""}`}>
       <div className="sideScorerTop">
         <div>
           <h3>{label}</h3>
           <small>{side !== label ? `${side} · ` : ""}{stroke ? "Stroke on this hole" : "No stroke on this hole"}</small>
         </div>
+        {winningScore && <span className="winnerBadge">Winning score</span>}
         {stroke && <span className="strokeBadge">Stroke</span>}
         <strong>{current ?? "—"}</strong>
       </div>
@@ -852,7 +1003,80 @@ function SideScorer({ label, side, stroke, current, options, onSelect, onClear }
   );
 }
 
+function AdminGate({ children }) {
+  const [unlocked, setUnlocked] = useState(() => localStorage.getItem(ADMIN_AUTH_KEY) === "true");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  function unlock(event) {
+    event.preventDefault();
+    if (password === ADMIN_PASSWORD) {
+      localStorage.setItem(ADMIN_AUTH_KEY, "true");
+      setUnlocked(true);
+      setError("");
+      setPassword("");
+      return;
+    }
+    setError("Wrong password");
+  }
+
+  function lock() {
+    localStorage.removeItem(ADMIN_AUTH_KEY);
+    setUnlocked(false);
+  }
+
+  if (unlocked) {
+    return (
+      <>
+        <div className="adminLockBar">
+          <span>Admin unlocked</span>
+          <button onClick={lock}>Lock</button>
+        </div>
+        {children}
+      </>
+    );
+  }
+
+  return (
+    <main className="page narrow">
+      <section className="card adminLogin">
+        <div className="eyebrow">Commissioner access</div>
+        <h2>Admin Locked</h2>
+        <p className="mutedText">Enter the admin password to edit scores and strokes.</p>
+        <form onSubmit={unlock}>
+          <label>
+            Password
+            <input
+              autoFocus
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          </label>
+          {error && <p className="formError">{error}</p>}
+          <button type="submit">Unlock Admin</button>
+        </form>
+      </section>
+    </main>
+  );
+}
+
 function Admin({ rows, updateRow }) {
+  async function clearAllScores() {
+    const confirmed = window.confirm("Clear every score and manual stroke override?");
+    if (!confirmed) return;
+
+    for (const match of MATCHES) {
+      const blank = blankRow(match);
+      await updateRow(match.id, {
+        gross_a: blank.gross_a,
+        gross_b: blank.gross_b,
+        manual_a: blank.manual_a,
+        manual_b: blank.manual_b,
+      });
+    }
+  }
+
   function updateManual(matchId, side, raw) {
     const value = raw === "" ? null : Number(raw.replace(/[^0-9]/g, "").slice(0, 2));
     updateRow(matchId, { [side]: value });
@@ -876,6 +1100,7 @@ function Admin({ rows, updateRow }) {
       <section className="card">
         <h2>Commissioner Admin</h2>
         <p className="mutedText">Use this to correct scores and override match strokes.</p>
+        <button className="dangerButton" onClick={clearAllScores}>Clear All Scores</button>
       </section>
 
       <div className="sessionGrid">
@@ -975,7 +1200,11 @@ function App() {
     <>
       <Header route={route} setRoute={setRoute} syncStatus={syncStatus} />
       {route.view === "score" && <Score rows={rows} updateRow={updateRow} route={route} setRoute={setRoute} />}
-      {route.view === "admin" && <Admin rows={rows} updateRow={updateRow} />}
+      {route.view === "admin" && (
+        <AdminGate>
+          <Admin rows={rows} updateRow={updateRow} />
+        </AdminGate>
+      )}
       {route.view === "board" && <Board rows={rows} />}
     </>
   );
