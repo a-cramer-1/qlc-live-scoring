@@ -849,7 +849,7 @@ function BoardMatchDetails({ session, match, result }) {
   );
 }
 
-function PressBoardCard({ session, match, result, isExpanded, onToggle }) {
+function PressBoardCard({ session, match, result, isExpanded, onAction }) {
   const course = COURSE[session.nine];
   const press = result.press;
   if (!press) return null;
@@ -859,11 +859,11 @@ function PressBoardCard({ session, match, result, isExpanded, onToggle }) {
       role="button"
       tabIndex={0}
       className={`pressCard ${leadingTeamClass(match, press)} ${press.pointsA + press.pointsB > 0 ? "finished" : ""} ${isExpanded ? "expanded" : ""}`}
-      onClick={onToggle}
+      onClick={onAction}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
-          onToggle();
+          onAction();
         }
       }}
       aria-expanded={isExpanded}
@@ -914,6 +914,14 @@ function Board({ rows, settings, setRoute }) {
     setExpandedMatchId(matchId);
   }
 
+  function handlePressCardAction(matchId, isExpanded) {
+    if (isExpanded) {
+      scoreMatch(matchId);
+      return;
+    }
+    setExpandedPressId(matchId);
+  }
+
   return (
     <main className="page">
       <OverallScore rows={rows} settings={settings} />
@@ -940,7 +948,7 @@ function Board({ rows, settings, setRoute }) {
                     <div
                       role="button"
                       tabIndex={0}
-                    className={`matchCard ${leadingClass} ${result.pointsA + result.pointsB > 0 ? "finished" : ""} ${isExpanded ? "expanded" : ""}`}
+                      className={`matchCard ${leadingClass} ${result.pointsA + result.pointsB > 0 ? "finished" : ""} ${isExpanded ? "expanded" : ""}`}
                       onClick={() => handleMatchCardAction(match.id, isExpanded)}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
@@ -968,7 +976,7 @@ function Board({ rows, settings, setRoute }) {
                       match={match}
                       result={result}
                       isExpanded={isPressExpanded}
-                      onToggle={() => setExpandedPressId(isPressExpanded ? null : match.id)}
+                      onAction={() => handlePressCardAction(match.id, isPressExpanded)}
                     />
                   </React.Fragment>
                 );
