@@ -537,7 +537,12 @@ small {
   background: var(--zookeepers);
 }
 
-.holeResult.HALVE,
+.holeResult.HALVE {
+  color: #0a0a0a;
+  border-color: #d4d4d4;
+  background: #d4d4d4;
+}
+
 .holeResult.empty {
   color: #737373;
   background: transparent;
