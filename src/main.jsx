@@ -113,15 +113,43 @@ function sideLabel(players) {
   return players.join(" & ");
 }
 
-function sideTeamInitial(match, side) {
+function teamKey(teamName) {
+  return teamName === "Jailbirds" ? "jailbirds" : "zookeepers";
+}
+
+function sideTeamName(match, side) {
   const players = side === "A" ? match.a : match.b;
-  return PLAYER_TEAM[players[0]] === "Jailbirds" ? "J" : "Z";
+  return PLAYER_TEAM[players[0]];
+}
+
+function sideTeamInitial(match, side) {
+  return sideTeamName(match, side) === "Jailbirds" ? "J" : "Z";
 }
 
 function holeResultLabel(match, result) {
   if (result === "A" || result === "B") return sideTeamInitial(match, result);
   if (result === "HALVE") return "½";
   return "—";
+}
+
+function resultTeamName(match, result) {
+  if (result !== "A" && result !== "B") return null;
+  return sideTeamName(match, result);
+}
+
+function resultTeamClass(match, result) {
+  const teamName = resultTeamName(match, result);
+  return teamName ? `team-${teamKey(teamName)}` : "";
+}
+
+function leadingTeamClass(match, result) {
+  if (result.diff > 0) return `leading-${teamKey(sideTeamName(match, "A"))}`;
+  if (result.diff < 0) return `leading-${teamKey(sideTeamName(match, "B"))}`;
+  return "";
+}
+
+function holeResultClasses(match, result) {
+  return ["holeResult", result || "empty", resultTeamClass(match, result)].filter(Boolean).join(" ");
 }
 
 function isBestBall(session) {
@@ -585,7 +613,28 @@ function OverallScore({ rows }) {
   );
 }
 
+function BoardMatchDetails({ session, match, result }) {
+  const course = COURSE[session.nine];
+
+  return (
+    <div className="boardMatchDetails">
+      <div className="boardHoleGrid">
+        {course.holes.map((hole, i) => (
+          <div className="boardHole" key={hole}>
+            <small>{hole}</small>
+            <span className={holeResultClasses(match, result.holeResults[i])}>
+              {holeResultLabel(match, result.holeResults[i])}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Board({ rows }) {
+  const [expandedMatchId, setExpandedMatchId] = useState(null);
+
   return (
     <main className="page">
       <OverallScore rows={rows} />
@@ -603,8 +652,23 @@ function Board({ rows }) {
               {session.matches.map((match) => {
                 const result = computeMatch(session, match, rows[match.id]);
                 const strokes = matchStrokes(session, match, rows[match.id]);
+                const isExpanded = expandedMatchId === match.id;
+                const leadingClass = leadingTeamClass(match, result);
                 return (
-                  <div className="matchCard" key={match.id}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className={`matchCard ${leadingClass} ${isExpanded ? "expanded" : ""}`}
+                    key={match.id}
+                    onClick={() => setExpandedMatchId(isExpanded ? null : match.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setExpandedMatchId(isExpanded ? null : match.id);
+                      }
+                    }}
+                    aria-expanded={isExpanded}
+                  >
                     <div>
                       <small>Tee {match.tee}</small>
                       <strong>{sideLabel(match.a)}</strong>
@@ -615,6 +679,7 @@ function Board({ rows }) {
                       <small>thru {result.completed}</small>
                     </div>
                     <div className="meta">Strokes: {strokesText(session, match, strokes)}{strokes.manual ? " · manual" : ""}</div>
+                    {isExpanded && <BoardMatchDetails session={session} match={match} result={result} />}
                   </div>
                 );
               })}
@@ -691,18 +756,8 @@ function Score({ rows, updateRow, route, setRoute }) {
     }));
   }
 
-  function clearHole() {
-    updateRow(match.id, (currentRow) => {
-      let grossA = currentRow.gross_a;
-      let grossB = currentRow.gross_b;
-      for (let slotIdx = 0; slotIdx < aSlotCount; slotIdx++) {
-        grossA = setScore(grossA, aSlotCount, slotIdx, holeIdx, null);
-      }
-      for (let slotIdx = 0; slotIdx < bSlotCount; slotIdx++) {
-        grossB = setScore(grossB, bSlotCount, slotIdx, holeIdx, null);
-      }
-      return { gross_a: grossA, gross_b: grossB };
-    });
+  function clearGross(side, slotIdx) {
+    setGross(side, slotIdx, null);
   }
 
   return (
@@ -738,6 +793,7 @@ function Score({ rows, updateRow, route, setRoute }) {
             current={getScore(row.gross_a, aSlotCount, slotIdx, holeIdx)}
             options={options}
             onSelect={(n) => setGross("a", slotIdx, n)}
+            onClear={() => clearGross("a", slotIdx)}
           />
         ))}
         {Array.from({ length: bSlotCount }, (_, slotIdx) => (
@@ -749,11 +805,11 @@ function Score({ rows, updateRow, route, setRoute }) {
             current={getScore(row.gross_b, bSlotCount, slotIdx, holeIdx)}
             options={options}
             onSelect={(n) => setGross("b", slotIdx, n)}
+            onClear={() => clearGross("b", slotIdx)}
           />
         ))}
 
         <div className="twoButtons">
-          <button className="secondary" onClick={clearHole}>Clear Hole</button>
           <button disabled={holeIdx === 8} onClick={() => setHoleIdx(Math.min(8, holeIdx + 1))}>Next Hole</button>
         </div>
       </section>
@@ -764,7 +820,7 @@ function Score({ rows, updateRow, route, setRoute }) {
           {course.holes.map((h, i) => (
             <button key={h} className={i === holeIdx ? "selected" : ""} onClick={() => setHoleIdx(i)}>
               <strong>{h}</strong>
-              <span className={`holeResult ${result.holeResults[i] || "empty"}`}>
+              <span className={holeResultClasses(match, result.holeResults[i])}>
                 {holeResultLabel(match, result.holeResults[i])}
               </span>
             </button>
@@ -775,7 +831,7 @@ function Score({ rows, updateRow, route, setRoute }) {
   );
 }
 
-function SideScorer({ label, side, stroke, current, options, onSelect }) {
+function SideScorer({ label, side, stroke, current, options, onSelect, onClear }) {
   return (
     <div className={`sideScorer ${stroke ? "hasStroke" : ""}`}>
       <div className="sideScorerTop">
@@ -791,6 +847,7 @@ function SideScorer({ label, side, stroke, current, options, onSelect }) {
           <ScoreButton key={n} value={n} current={current} onClick={() => onSelect(n)} />
         ))}
       </div>
+      <button className="clearPlayerButton" disabled={current === null} onClick={onClear}>Clear {label}</button>
     </div>
   );
 }
