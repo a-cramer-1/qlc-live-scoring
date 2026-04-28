@@ -1038,7 +1038,7 @@ function Board({ rows, settings, setRoute }) {
                         {!isFinal && <small>thru {result.completed}</small>}
                         {isFinal && <span className="finalPill">Final</span>}
                       </div>
-                      <div className="meta">Strokes: {strokesText(session, match, strokes)}{strokes.manual ? " · manual" : ""}</div>
+                      <div className="meta">Strokes: {strokesText(session, match, strokes)}</div>
                       {isExpanded && (
                         <>
                           <BoardMatchDetails session={session} match={match} result={result} />
@@ -1347,7 +1347,7 @@ function AdminGate({ children }) {
 
 function Admin({ rows, updateRow, settings, updateSettings }) {
   async function clearAllScores() {
-    const confirmed = window.confirm("Clear every score and manual stroke override?");
+    const confirmed = window.confirm("Clear every score and stroke override?");
     if (!confirmed) return;
 
     for (const match of MATCHES) {
@@ -1489,7 +1489,7 @@ function Admin({ rows, updateRow, settings, updateSettings }) {
                   <small>{result.status}</small>
                   {isBestBall(session) ? (
                     <>
-                      <div className="meta adminStrokeMeta">Player strokes: {strokesText(session, match, strokes)}{strokes.manual ? " · manual" : ""}</div>
+                      <div className="meta adminStrokeMeta">Player strokes: {strokesText(session, match, strokes)}</div>
                       <div className="manualGrid playerStrokeGrid">
                         {[...match.a, ...match.b].map((player) => (
                           <label key={player}>
