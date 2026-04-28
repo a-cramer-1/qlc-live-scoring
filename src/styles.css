@@ -82,6 +82,7 @@ button:disabled {
 
 .nav {
   display: flex;
+  align-items: center;
   gap: 6px;
 }
 
@@ -101,8 +102,6 @@ button:disabled {
 }
 
 .sync {
-  grid-column: 1 / -1;
-  justify-self: start;
   padding: 5px 9px;
   border-radius: 99px;
   background: #262626;
@@ -239,9 +238,9 @@ button:disabled {
 }
 
 .scoreBoxText span {
-  color: #d4d4d4;
+  color: rgba(212, 212, 212, 0.74);
   font-size: 13px;
-  font-weight: 950;
+  font-weight: 650;
   letter-spacing: 0;
 }
 
@@ -1033,7 +1032,8 @@ small {
   border-color: #0a0a0a;
 }
 
-.scorecardStrip .holeGrid button.selected .holeResult.empty {
+.scorecardStrip .holeGrid button.selected .holeResult.empty,
+.scorecardStrip .holeGrid button.selected .holeResult.HALVE {
   border-color: transparent;
 }
 
