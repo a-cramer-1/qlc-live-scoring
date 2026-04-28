@@ -310,6 +310,7 @@ p {
 }
 
 .matchCard {
+  position: relative;
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 8px;
@@ -321,9 +322,11 @@ p {
   color: #f5f5f5;
   cursor: pointer;
   text-align: left;
+  overflow: hidden;
 }
 
 .pressCard {
+  position: relative;
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 8px;
@@ -336,6 +339,13 @@ p {
   color: #f5f5f5;
   cursor: pointer;
   text-align: left;
+  overflow: hidden;
+}
+
+.matchCard > :not(.winnerHeadshots),
+.pressCard > :not(.winnerHeadshots) {
+  position: relative;
+  z-index: 1;
 }
 
 .matchCard:focus-visible {
@@ -346,13 +356,29 @@ p {
 .matchCard.leading-jailbirds,
 .pressCard.leading-jailbirds {
   border-color: rgba(37, 99, 235, 0.75);
-  background: linear-gradient(90deg, var(--jailbirds-soft), #0a0a0a 58%);
+  background:
+    radial-gradient(ellipse at 76% 54%, rgba(37, 99, 235, 0.14), transparent 58%),
+    linear-gradient(105deg, var(--jailbirds-soft) 0%, rgba(22, 31, 49, 0.82) 42%, rgba(10, 10, 10, 0.88) 100%);
 }
 
 .matchCard.leading-zookeepers,
 .pressCard.leading-zookeepers {
   border-color: rgba(22, 163, 74, 0.75);
-  background: linear-gradient(90deg, var(--zookeepers-soft), #0a0a0a 58%);
+  background:
+    radial-gradient(ellipse at 76% 54%, rgba(22, 163, 74, 0.13), transparent 58%),
+    linear-gradient(105deg, var(--zookeepers-soft) 0%, rgba(17, 38, 27, 0.82) 42%, rgba(10, 10, 10, 0.88) 100%);
+}
+
+.sideName.team-jailbirds {
+  color: #93c5fd;
+}
+
+.sideName.team-zookeepers {
+  color: #86efac;
+}
+
+.sideName.lost {
+  color: #a3a3a3;
 }
 
 .matchCard.expanded {
@@ -380,6 +406,69 @@ p {
 .pressCard.finished.leading-zookeepers {
   border-color: #86efac;
   box-shadow: inset 0 0 0 1px rgba(134, 239, 172, 0.38), 0 0 0 1px rgba(134, 239, 172, 0.22);
+}
+
+.matchCard.finished::after,
+.pressCard.finished::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(10, 10, 10, 0) 0%, rgba(10, 10, 10, 0.1) 28%, rgba(10, 10, 10, 0.42) 68%, rgba(10, 10, 10, 0.76) 100%),
+    linear-gradient(180deg, rgba(10, 10, 10, 0.16), rgba(10, 10, 10, 0) 42%, rgba(10, 10, 10, 0.2));
+}
+
+.winnerHeadshots {
+  position: absolute;
+  right: 48px;
+  bottom: -18px;
+  z-index: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  width: min(52%, 230px);
+  height: 118%;
+  pointer-events: none;
+  opacity: 0.39;
+  filter: saturate(0.95) contrast(1.05);
+  -webkit-mask-image:
+    linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.12) 14%, #000 42%, #000 100%),
+    linear-gradient(180deg, transparent 0%, #000 15%, #000 88%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.12) 14%, #000 42%, #000 100%),
+    linear-gradient(180deg, transparent 0%, #000 15%, #000 88%, transparent 100%);
+  mask-composite: intersect;
+}
+
+.winnerHeadshots::after {
+  content: none;
+}
+
+.winnerHeadshot {
+  width: 58%;
+  height: 100%;
+  object-fit: contain;
+  object-position: bottom center;
+  min-width: 0;
+}
+
+.winnerHeadshot + .winnerHeadshot {
+  margin-left: -22%;
+}
+
+.winnerHeadshots.compact {
+  right: 42px;
+  bottom: -14px;
+  width: min(48%, 180px);
+  height: 112%;
+  opacity: 0.29;
+}
+
+.winnerHeadshots.compact .winnerHeadshot + .winnerHeadshot {
+  margin-left: -28%;
 }
 
 .finalPill {
@@ -455,6 +544,21 @@ small {
   border: 1px solid #262626;
   border-radius: 13px;
   background: rgba(10, 10, 10, 0.7);
+}
+
+.boardHole.masked {
+  border-color: rgba(115, 115, 115, 0.38);
+  background: rgba(38, 38, 38, 0.46);
+}
+
+.boardHole.masked small {
+  color: #737373;
+}
+
+.holeResult.masked {
+  color: #a3a3a3;
+  border-color: transparent;
+  background: transparent;
 }
 
 .pressHoleGrid {
@@ -1030,6 +1134,10 @@ small {
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   margin-top: 10px;
+}
+
+.playerStrokeGrid {
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
 }
 
 label {

@@ -22,6 +22,10 @@ const PLAYER_TEAM = Object.fromEntries(
   )
 );
 
+const PLAYER_HEADSHOTS = Object.fromEntries(
+  Object.keys(PLAYER_TEAM).map((player) => [player, `/assets/headshots/${player.toLowerCase()}-rbg.png`])
+);
+
 const COURSE = {
   front: {
     label: "Front Nine",
@@ -149,10 +153,26 @@ function resultTeamClass(match, result) {
   return teamName ? `team-${teamKey(teamName)}` : "";
 }
 
+function sideTeamClass(match, side) {
+  return `team-${teamKey(sideTeamName(match, side))}`;
+}
+
+function sideNameClass(match, result, side) {
+  const winner = winningSide(result);
+  const lost = result.pointsA + result.pointsB > 0 && winner && winner !== side;
+  return ["sideName", sideTeamClass(match, side), lost ? "lost" : ""].filter(Boolean).join(" ");
+}
+
 function leadingTeamClass(match, result) {
   if (result.diff > 0) return `leading-${teamKey(sideTeamName(match, "A"))}`;
   if (result.diff < 0) return `leading-${teamKey(sideTeamName(match, "B"))}`;
   return "";
+}
+
+function winningSide(result) {
+  if (result.pointsA > result.pointsB) return "A";
+  if (result.pointsB > result.pointsA) return "B";
+  return null;
 }
 
 function holeResultClasses(match, result) {
@@ -252,10 +272,23 @@ function calculatedPlayerStrokes(session, match) {
 
 function matchStrokes(session, match, row) {
   if (isBestBall(session)) {
+    const calculated = calculatedPlayerStrokes(session, match);
+    const manualPlayerStrokes = row?.manual_player_strokes || {};
+    const hasManual = Object.values(manualPlayerStrokes).some((value) => value !== null && value !== undefined && value !== "");
     return {
-      a: match.a.map((player) => ({ player, strokes: calculatedPlayerStrokes(session, match)[player] })),
-      b: match.b.map((player) => ({ player, strokes: calculatedPlayerStrokes(session, match)[player] })),
-      manual: false,
+      a: match.a.map((player) => ({
+        player,
+        strokes: manualPlayerStrokes[player] !== null && manualPlayerStrokes[player] !== undefined && manualPlayerStrokes[player] !== ""
+          ? Number(manualPlayerStrokes[player])
+          : calculated[player],
+      })),
+      b: match.b.map((player) => ({
+        player,
+        strokes: manualPlayerStrokes[player] !== null && manualPlayerStrokes[player] !== undefined && manualPlayerStrokes[player] !== ""
+          ? Number(manualPlayerStrokes[player])
+          : calculated[player],
+      })),
+      manual: hasManual,
     };
   }
 
@@ -309,6 +342,7 @@ function blankRow(match) {
     gross_b: blankScores(sideSlotCount(session, match.b)),
     manual_a: null,
     manual_b: null,
+    manual_player_strokes: null,
     updated_at: new Date().toISOString(),
   };
 }
@@ -720,8 +754,8 @@ function Header({ route, setRoute, syncStatus }) {
         <img className="brandLogo" src="/assets/qlc-white.png" alt="" />
       </div>
       <div className="nav">
-        <button className={route.view === "board" ? "active" : ""} onClick={() => nav("board")}>Board</button>
-        <button className={route.view === "score" ? "active" : ""} onClick={() => nav("score")}>Score</button>
+        <button className={route.view === "board" ? "active" : ""} onClick={() => nav("board")}>Overall</button>
+        <button className={route.view === "score" ? "active" : ""} onClick={() => nav("score")}>Matches</button>
         <button className={route.view === "admin" ? "active" : ""} onClick={() => nav("admin")}>Admin</button>
       </div>
       <div className={`sync ${syncStatus}`}>{syncStatus === "live" ? "Live" : syncStatus === "local" ? "Local" : syncStatus}</div>
@@ -832,19 +866,41 @@ function OverallScore({ rows, settings }) {
 
 function BoardMatchDetails({ session, match, result }) {
   const course = COURSE[session.nine];
+  const firstPressHoleIdx = result.press?.startIdx ?? null;
+  const shouldMaskPressHole = (holeIdx) => result.base?.decided && firstPressHoleIdx !== null && holeIdx >= firstPressHoleIdx;
 
   return (
     <div className="boardMatchDetails">
       <div className="boardHoleGrid">
-        {course.holes.map((hole, i) => (
-          <div className="boardHole" key={hole}>
-            <small>{hole}</small>
-            <span className={holeResultClasses(match, result.holeResults[i])}>
-              {holeResultLabel(match, result.holeResults[i])}
-            </span>
-          </div>
-        ))}
+        {course.holes.map((hole, i) => {
+          const isMasked = shouldMaskPressHole(i);
+          return (
+            <div className={`boardHole ${isMasked ? "masked" : ""}`} key={hole}>
+              <small>{hole}</small>
+              <span className={isMasked ? "holeResult masked" : holeResultClasses(match, result.holeResults[i])}>
+                {isMasked ? "X" : holeResultLabel(match, result.holeResults[i])}
+              </span>
+            </div>
+          );
+        })}
       </div>
+    </div>
+  );
+}
+
+function WinnerHeadshots({ players, compact = false }) {
+  if (!players?.length) return null;
+
+  return (
+    <div className={`winnerHeadshots ${compact ? "compact" : ""}`} aria-hidden="true">
+      {players.map((player, idx) => (
+        <img
+          key={player}
+          src={PLAYER_HEADSHOTS[player]}
+          alt=""
+          className={`winnerHeadshot headshot-${idx + 1}`}
+        />
+      ))}
     </div>
   );
 }
@@ -853,6 +909,8 @@ function PressBoardCard({ session, match, result, isExpanded, onAction }) {
   const course = COURSE[session.nine];
   const press = result.press;
   if (!press) return null;
+  const pressWinnerSide = winningSide(press);
+  const pressWinnerPlayers = pressWinnerSide ? (pressWinnerSide === "A" ? match.a : match.b) : [];
 
   return (
     <div
@@ -868,10 +926,11 @@ function PressBoardCard({ session, match, result, isExpanded, onAction }) {
       }}
       aria-expanded={isExpanded}
     >
+      <WinnerHeadshots players={pressWinnerPlayers} compact />
       <div>
         <small>Press · 0.5 pt · Holes {course.holes.slice(press.startIdx, press.endIdx + 1).join("-")}</small>
-        <strong>{sideLabel(match.a)}</strong>
-        <strong className="mutedText">{sideLabel(match.b)}</strong>
+        <strong className={sideNameClass(match, press, "A")}>{sideLabel(match.a)}</strong>
+        <strong className={sideNameClass(match, press, "B")}>{sideLabel(match.b)}</strong>
       </div>
       <div className="right">
         <strong>{press.compact}</strong>
@@ -881,11 +940,12 @@ function PressBoardCard({ session, match, result, isExpanded, onAction }) {
         <div className="boardHoleGrid pressHoleGrid">
           {course.holes.slice(press.startIdx, press.endIdx + 1).map((hole, offset) => {
             const holeIdx = press.startIdx + offset;
+            const isMasked = press.decided && press.decisionIdx !== null && holeIdx > press.decisionIdx;
             return (
-              <div className="boardHole pressHole" key={hole}>
+              <div className={`boardHole pressHole ${isMasked ? "masked" : ""}`} key={hole}>
                 <small>{hole}</small>
-                <span className={holeResultClasses(match, result.holeResults[holeIdx])}>
-                  {holeResultLabel(match, result.holeResults[holeIdx])}
+                <span className={isMasked ? "holeResult masked" : holeResultClasses(match, result.holeResults[holeIdx])}>
+                  {isMasked ? "X" : holeResultLabel(match, result.holeResults[holeIdx])}
                 </span>
               </div>
             );
@@ -933,7 +993,6 @@ function Board({ rows, settings, setRoute }) {
                 <h2>{session.label}</h2>
                 <p>{session.format} · {COURSE[session.nine].label}</p>
               </div>
-              <span className="badge">{session.shortLabel}</span>
             </div>
             <div className="matchList">
               {session.matches.map((match) => {
@@ -943,6 +1002,8 @@ function Board({ rows, settings, setRoute }) {
                 const isPressExpanded = expandedPressId === match.id;
                 const leadingClass = leadingTeamClass(match, result);
                 const isFinal = result.pointsA + result.pointsB > 0;
+                const baseWinnerSide = winningSide(result);
+                const baseWinnerPlayers = isFinal && baseWinnerSide ? (baseWinnerSide === "A" ? match.a : match.b) : [];
                 return (
                   <React.Fragment key={match.id}>
                     <div
@@ -958,10 +1019,11 @@ function Board({ rows, settings, setRoute }) {
                       }}
                       aria-expanded={isExpanded}
                     >
+                      <WinnerHeadshots players={baseWinnerPlayers} />
                       <div>
                         <small>Tee {match.tee}</small>
-                        <strong>{sideLabel(match.a)}</strong>
-                        <strong className="mutedText">{sideLabel(match.b)}</strong>
+                        <strong className={sideNameClass(match, result, "A")}>{sideLabel(match.a)}</strong>
+                        <strong className={sideNameClass(match, result, "B")}>{sideLabel(match.b)}</strong>
                       </div>
                       <div className="right">
                         <strong>{result.compact}</strong>
@@ -1270,6 +1332,7 @@ function Admin({ rows, updateRow, settings, updateSettings }) {
         gross_b: blank.gross_b,
         manual_a: blank.manual_a,
         manual_b: blank.manual_b,
+        manual_player_strokes: blank.manual_player_strokes,
       });
     }
   }
@@ -1301,6 +1364,21 @@ function Admin({ rows, updateRow, settings, updateSettings }) {
   function updateManual(matchId, side, raw) {
     const value = raw === "" ? null : Number(raw.replace(/[^0-9]/g, "").slice(0, 2));
     updateRow(matchId, { [side]: value });
+  }
+
+  function updateManualPlayer(matchId, player, raw) {
+    const value = raw === "" ? null : Number(raw.replace(/[^0-9]/g, "").slice(0, 2));
+    updateRow(matchId, (currentRow) => {
+      const manualPlayerStrokes = { ...(currentRow.manual_player_strokes || {}) };
+      if (value === null) {
+        delete manualPlayerStrokes[player];
+      } else {
+        manualPlayerStrokes[player] = value;
+      }
+      return {
+        manual_player_strokes: Object.keys(manualPlayerStrokes).length ? manualPlayerStrokes : null,
+      };
+    });
   }
 
   function updateGross(matchId, key, holeIdx, raw) {
@@ -1375,6 +1453,7 @@ function Admin({ rows, updateRow, settings, updateSettings }) {
               const row = rows[match.id];
               const result = computeMatch(session, match, row);
               const calculated = calculatedMatchStrokes(session, match);
+              const calculatedPlayers = calculatedPlayerStrokes(session, match);
               const strokes = matchStrokes(session, match, row);
               const course = COURSE[session.nine];
               const aSlotCount = sideSlotCount(session, match.a);
@@ -1384,7 +1463,21 @@ function Admin({ rows, updateRow, settings, updateSettings }) {
                   <strong>{sideLabel(match.a)} vs {sideLabel(match.b)}</strong>
                   <small>{result.status}</small>
                   {isBestBall(session) ? (
-                    <div className="meta adminStrokeMeta">Player strokes: {strokesText(session, match, strokes)}</div>
+                    <>
+                      <div className="meta adminStrokeMeta">Player strokes: {strokesText(session, match, strokes)}{strokes.manual ? " · manual" : ""}</div>
+                      <div className="manualGrid playerStrokeGrid">
+                        {[...match.a, ...match.b].map((player) => (
+                          <label key={player}>
+                            {player} strokes
+                            <input
+                              value={row.manual_player_strokes?.[player] ?? ""}
+                              placeholder={String(calculatedPlayers[player])}
+                              onChange={(e) => updateManualPlayer(match.id, player, e.target.value)}
+                            />
+                          </label>
+                        ))}
+                      </div>
+                    </>
                   ) : (
                     <div className="manualGrid">
                       <label>
