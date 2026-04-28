@@ -765,8 +765,8 @@ function Header({ route, setRoute, syncStatus }) {
         <button className={route.view === "board" ? "active" : ""} onClick={() => nav("board")}>Overall</button>
         <button className={route.view === "score" ? "active" : ""} onClick={() => nav("score")}>Matches</button>
         <button className={route.view === "admin" ? "active" : ""} onClick={() => nav("admin")}>Admin</button>
+        <div className={`sync ${syncStatus}`}>{syncStatus === "live" ? "Live" : syncStatus === "local" ? "Local" : syncStatus}</div>
       </div>
-      <div className={`sync ${syncStatus}`}>{syncStatus === "live" ? "Live" : syncStatus === "local" ? "Local" : syncStatus}</div>
     </header>
   );
 }
