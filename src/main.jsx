@@ -905,7 +905,7 @@ function WinnerHeadshots({ players, compact = false }) {
   );
 }
 
-function PressBoardCard({ session, match, result, isExpanded, onAction }) {
+function PressBoardCard({ session, match, result, isExpanded, onAction, onDetails }) {
   const course = COURSE[session.nine];
   const press = result.press;
   if (!press) return null;
@@ -937,20 +937,23 @@ function PressBoardCard({ session, match, result, isExpanded, onAction }) {
         {press.pointsA + press.pointsB > 0 && <span className="finalPill">Final</span>}
       </div>
       {isExpanded && (
-        <div className="boardHoleGrid pressHoleGrid">
-          {course.holes.slice(press.startIdx, press.endIdx + 1).map((hole, offset) => {
-            const holeIdx = press.startIdx + offset;
-            const isMasked = press.decided && press.decisionIdx !== null && holeIdx > press.decisionIdx;
-            return (
-              <div className={`boardHole pressHole ${isMasked ? "masked" : ""}`} key={hole}>
-                <small>{hole}</small>
-                <span className={isMasked ? "holeResult masked" : holeResultClasses(match, result.holeResults[holeIdx])}>
-                  {isMasked ? "X" : holeResultLabel(match, result.holeResults[holeIdx])}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+        <>
+          <div className="boardHoleGrid pressHoleGrid">
+            {course.holes.slice(press.startIdx, press.endIdx + 1).map((hole, offset) => {
+              const holeIdx = press.startIdx + offset;
+              const isMasked = press.decided && press.decisionIdx !== null && holeIdx > press.decisionIdx;
+              return (
+                <div className={`boardHole pressHole ${isMasked ? "masked" : ""}`} key={hole}>
+                  <small>{hole}</small>
+                  <span className={isMasked ? "holeResult masked" : holeResultClasses(match, result.holeResults[holeIdx])}>
+                    {isMasked ? "X" : holeResultLabel(match, result.holeResults[holeIdx])}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <button className="detailsButton" onClick={onDetails}>Details</button>
+        </>
       )}
     </div>
   );
@@ -968,7 +971,7 @@ function Board({ rows, settings, setRoute }) {
 
   function handleMatchCardAction(matchId, isExpanded) {
     if (isExpanded) {
-      scoreMatch(matchId);
+      setExpandedMatchId(null);
       return;
     }
     setExpandedMatchId(matchId);
@@ -976,7 +979,7 @@ function Board({ rows, settings, setRoute }) {
 
   function handlePressCardAction(matchId, isExpanded) {
     if (isExpanded) {
-      scoreMatch(matchId);
+      setExpandedPressId(null);
       return;
     }
     setExpandedPressId(matchId);
@@ -1021,7 +1024,7 @@ function Board({ rows, settings, setRoute }) {
                     >
                       <WinnerHeadshots players={baseWinnerPlayers} />
                       <div>
-                        <small>Tee {match.tee}</small>
+                        <small>Match {match.tee} · 1 pt</small>
                         <strong className={sideNameClass(match, result, "A")}>{sideLabel(match.a)}</strong>
                         <strong className={sideNameClass(match, result, "B")}>{sideLabel(match.b)}</strong>
                       </div>
@@ -1031,7 +1034,20 @@ function Board({ rows, settings, setRoute }) {
                         {isFinal && <span className="finalPill">Final</span>}
                       </div>
                       <div className="meta">Strokes: {strokesText(session, match, strokes)}{strokes.manual ? " · manual" : ""}</div>
-                      {isExpanded && <BoardMatchDetails session={session} match={match} result={result} />}
+                      {isExpanded && (
+                        <>
+                          <BoardMatchDetails session={session} match={match} result={result} />
+                          <button
+                            className="detailsButton"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              scoreMatch(match.id);
+                            }}
+                          >
+                            Details
+                          </button>
+                        </>
+                      )}
                     </div>
                     <PressBoardCard
                       session={session}
@@ -1039,6 +1055,10 @@ function Board({ rows, settings, setRoute }) {
                       result={result}
                       isExpanded={isPressExpanded}
                       onAction={() => handlePressCardAction(match.id, isPressExpanded)}
+                      onDetails={(event) => {
+                        event.stopPropagation();
+                        scoreMatch(match.id);
+                      }}
                     />
                   </React.Fragment>
                 );
