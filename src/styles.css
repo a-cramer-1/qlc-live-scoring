@@ -493,6 +493,14 @@ p {
   transform-origin: bottom center;
 }
 
+.winnerHeadshot.headshot-player-cramer,
+.winnerHeadshot.headshot-player-marshall,
+.winnerHeadshot.headshot-player-jake,
+.winnerHeadshot.headshot-player-bernie {
+  transform: scale(0.9);
+  transform-origin: bottom center;
+}
+
 .winnerHeadshots.compact {
   right: 16px;
   bottom: -20px;
