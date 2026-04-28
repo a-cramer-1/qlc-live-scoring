@@ -1000,6 +1000,7 @@ small {
 
 .holeResult.empty {
   color: #737373;
+  border-color: transparent;
   background: transparent;
 }
 
