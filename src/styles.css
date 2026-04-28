@@ -216,9 +216,12 @@ button:disabled {
   background: linear-gradient(180deg, var(--zookeepers-soft), #0a0a0a);
 }
 
-.scoreBox div {
+.scoreBoxText {
   position: relative;
   z-index: 1;
+  display: grid;
+  place-items: center;
+  gap: 6px;
   color: #a3a3a3;
   font-size: 14px;
   font-weight: 900;
@@ -233,6 +236,13 @@ button:disabled {
   line-height: 1;
   letter-spacing: -0.06em;
   text-shadow: 0 3px 14px #000;
+}
+
+.scoreBoxText span {
+  color: #d4d4d4;
+  font-size: 13px;
+  font-weight: 950;
+  letter-spacing: 0;
 }
 
 .projectionPanel {

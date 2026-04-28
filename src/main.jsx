@@ -841,30 +841,21 @@ function OverallScore({ rows, settings }) {
     <section className="scoreHero">
       <div className="scoreTitle">
         <span>Overall Score</span>
+        <span>{totals.active ? `${totals.active} active` : "No active matches"}</span>
       </div>
       <div className="scoreBoxes">
         <div className="scoreBox">
           <img src="/assets/jailbirds.png" alt="" />
-          <strong>{totals.actual.jailbirds}</strong>
+          <div className="scoreBoxText">
+            <strong>{totals.actual.jailbirds}</strong>
+            <span>Projected: {totals.projected.jailbirds}</span>
+          </div>
         </div>
         <div className="scoreBox">
           <img src="/assets/zookeepers.png" alt="" />
-          <strong>{totals.actual.zookeepers}</strong>
-        </div>
-      </div>
-      <div className="projectionPanel">
-        <div className="scoreTitle projectionTitle">
-          <span>Projected</span>
-          <span>{totals.active ? `${totals.active} active` : "No active matches"}</span>
-        </div>
-        <div className="projectionBoxes">
-          <div>
-            <span>Jailbirds</span>
-            <strong>{totals.projected.jailbirds}</strong>
-          </div>
-          <div>
-            <span>Zookeepers</span>
-            <strong>{totals.projected.zookeepers}</strong>
+          <div className="scoreBoxText">
+            <strong>{totals.actual.zookeepers}</strong>
+            <span>Projected: {totals.projected.zookeepers}</span>
           </div>
         </div>
       </div>
