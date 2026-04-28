@@ -890,15 +890,21 @@ function BoardMatchDetails({ session, match, result }) {
 
 function WinnerHeadshots({ players, compact = false }) {
   if (!players?.length) return null;
+  const displayPlayers = [...players].sort((a, b) => {
+    if (a === "Wolf") return -1;
+    if (b === "Wolf") return 1;
+    return 0;
+  });
+  const soloClass = displayPlayers.length === 1 ? "solo" : "";
 
   return (
-    <div className={`winnerHeadshots ${compact ? "compact" : ""}`} aria-hidden="true">
-      {players.map((player, idx) => (
+    <div className={`winnerHeadshots ${compact ? "compact" : ""} ${soloClass}`} aria-hidden="true">
+      {displayPlayers.map((player, idx) => (
         <img
           key={player}
           src={PLAYER_HEADSHOTS[player]}
           alt=""
-          className={`winnerHeadshot headshot-${idx + 1}`}
+          className={`winnerHeadshot headshot-${idx + 1} headshot-player-${player.toLowerCase()}`}
         />
       ))}
     </div>

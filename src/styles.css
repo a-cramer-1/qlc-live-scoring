@@ -422,16 +422,16 @@ p {
 
 .winnerHeadshots {
   position: absolute;
-  right: 48px;
-  bottom: -18px;
+  right: 22px;
+  bottom: -24px;
   z-index: 0;
   display: flex;
   align-items: flex-end;
   justify-content: flex-end;
-  width: min(52%, 230px);
-  height: 118%;
+  width: min(62%, 300px);
+  height: 128%;
   pointer-events: none;
-  opacity: 0.39;
+  opacity: 0.42;
   filter: saturate(0.95) contrast(1.05);
   -webkit-mask-image:
     linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.12) 14%, #000 42%, #000 100%),
@@ -444,31 +444,65 @@ p {
 }
 
 .winnerHeadshots::after {
-  content: none;
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(10, 10, 10, 0.72) 0%, rgba(10, 10, 10, 0.18) 30%, rgba(10, 10, 10, 0) 62%),
+    linear-gradient(180deg, rgba(10, 10, 10, 0.2), rgba(10, 10, 10, 0) 42%, rgba(10, 10, 10, 0.34));
 }
 
 .winnerHeadshot {
+  flex: 0 0 58%;
   width: 58%;
   height: 100%;
   object-fit: contain;
   object-position: bottom center;
   min-width: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.winnerHeadshot.headshot-2 {
+  z-index: 2;
 }
 
 .winnerHeadshot + .winnerHeadshot {
-  margin-left: -22%;
+  margin-left: -26%;
+}
+
+.winnerHeadshots.solo {
+  right: 56px;
+  justify-content: center;
+  width: min(68%, 330px);
+}
+
+.winnerHeadshots.solo .winnerHeadshot {
+  flex-basis: 74%;
+  width: 74%;
+}
+
+.winnerHeadshot.headshot-player-rij {
+  transform: scale(0.78);
+  transform-origin: bottom center;
 }
 
 .winnerHeadshots.compact {
-  right: 42px;
-  bottom: -14px;
-  width: min(48%, 180px);
-  height: 112%;
-  opacity: 0.29;
+  right: 16px;
+  bottom: -20px;
+  width: min(58%, 230px);
+  height: 122%;
+  opacity: 0.34;
 }
 
 .winnerHeadshots.compact .winnerHeadshot + .winnerHeadshot {
-  margin-left: -28%;
+  margin-left: -30%;
+}
+
+.winnerHeadshots.compact.solo {
+  right: 46px;
+  width: min(64%, 260px);
 }
 
 .finalPill {
@@ -525,13 +559,15 @@ small {
 
 .detailsButton {
   grid-column: 1 / -1;
-  justify-self: end;
+  align-self: center;
+  justify-self: center;
   min-height: 34px;
-  padding: 0 14px;
-  border: 1px solid rgba(245, 245, 245, 0.7);
+  padding: 0 18px;
+  border: 1px solid rgba(245, 245, 245, 0.28);
   border-radius: 999px;
-  background: #f5f5f5;
-  color: #0a0a0a;
+  background: rgba(245, 245, 245, 0.08);
+  color: #f5f5f5;
+  backdrop-filter: blur(10px);
   font-size: 12px;
   font-weight: 950;
 }

@@ -7,8 +7,22 @@ create table if not exists public.match_scores (
   gross_b jsonb not null default '[]'::jsonb,
   manual_a int,
   manual_b int,
+  manual_player_strokes jsonb,
   updated_at timestamptz not null default now()
 );
+
+create table if not exists public.app_settings (
+  id text primary key,
+  settings jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+insert into public.app_settings (id, settings)
+values (
+  'global',
+  '{"visibleSessionIds":["sat-am","sat-pm"],"sessionOrder":["sat-am","sat-pm","sun-am","sun-pm"]}'::jsonb
+)
+on conflict (id) do nothing;
 
 do $$
 begin
@@ -32,9 +46,13 @@ begin
   alter table public.match_scores
     alter column gross_a set default '[]'::jsonb,
     alter column gross_b set default '[]'::jsonb;
+
+  alter table public.match_scores
+    add column if not exists manual_player_strokes jsonb;
 end $$;
 
 alter table public.match_scores enable row level security;
+alter table public.app_settings enable row level security;
 
 drop policy if exists "public read match scores" on public.match_scores;
 create policy "public read match scores"
@@ -58,10 +76,39 @@ to anon
 using (true)
 with check (true);
 
+drop policy if exists "public read app settings" on public.app_settings;
+create policy "public read app settings"
+on public.app_settings
+for select
+to anon
+using (true);
+
+drop policy if exists "public insert app settings" on public.app_settings;
+create policy "public insert app settings"
+on public.app_settings
+for insert
+to anon
+with check (true);
+
+drop policy if exists "public update app settings" on public.app_settings;
+create policy "public update app settings"
+on public.app_settings
+for update
+to anon
+using (true)
+with check (true);
+
 -- Enable realtime for this table.
 do $$
 begin
   alter publication supabase_realtime add table public.match_scores;
+exception
+  when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.app_settings;
 exception
   when duplicate_object then null;
 end $$;
