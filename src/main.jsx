@@ -351,6 +351,14 @@ function blankRowsById() {
   return Object.fromEntries(MATCHES.map((m) => [m.id, blankRow(m)]));
 }
 
+function rowForSave(row) {
+  const next = { ...row };
+  if (next.manual_player_strokes == null) {
+    delete next.manual_player_strokes;
+  }
+  return next;
+}
+
 function normalizeRows(rows) {
   const byId = blankRowsById();
   for (const row of rows || []) {
@@ -591,7 +599,7 @@ function useScores() {
       const missing = MATCHES.filter((m) => !existingIds.has(m.id)).map((m) => blankRow(m));
 
       if (missing.length) {
-        await supabase.from("match_scores").upsert(missing);
+        await supabase.from("match_scores").upsert(missing.map(rowForSave));
       }
 
       const { data: refreshed } = await supabase.from("match_scores").select("*");
@@ -640,7 +648,7 @@ function useScores() {
       return;
     }
 
-    const { error } = await supabase.from("match_scores").upsert(nextRow);
+    const { error } = await supabase.from("match_scores").upsert(rowForSave(nextRow));
     if (error) {
       console.error(error);
       setSyncStatus("error");
