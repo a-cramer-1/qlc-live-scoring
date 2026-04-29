@@ -1307,7 +1307,6 @@ function SideScorer({ label, side, teamName, stroke, winningScore, current, opti
       <div className="sideScorerTop">
         <div>
           <h3>{label}</h3>
-          <small>{side !== label ? `${side} · ` : ""}{stroke ? "Stroke on this hole" : "No stroke on this hole"}</small>
         </div>
         {winningScore && <span className="winnerBadge">Winning score</span>}
         {stroke && <span className="strokeBadge">Stroke</span>}

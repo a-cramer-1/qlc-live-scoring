@@ -157,6 +157,7 @@ button:disabled {
 
 .sideScorerTop {
   flex-wrap: wrap;
+  gap: 8px;
 }
 
 .scoreTitle {
@@ -854,10 +855,6 @@ small {
   line-height: 1.05;
 }
 
-.sideScorer small {
-  line-height: 1.25;
-}
-
 .sideScorerTop strong {
   margin-left: auto;
   font-size: 32px;
@@ -865,7 +862,7 @@ small {
 }
 
 .sideScorerTop > div:first-child {
-  flex: 1 1 170px;
+  flex: 1 1 96px;
 }
 
 .strokeBadge {
