@@ -483,6 +483,32 @@ p {
   margin-left: -26%;
 }
 
+.matchCard.expanded.finished .winnerHeadshots {
+  top: 0;
+  right: 10px;
+  bottom: auto;
+  align-items: flex-start;
+  width: min(74%, 380px);
+  height: calc(100% + 18px);
+  -webkit-mask-image:
+    linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.18) 12%, #000 34%, #000 100%),
+    linear-gradient(180deg, #000 0%, #000 88%, transparent 100%);
+  mask-image:
+    linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.18) 12%, #000 34%, #000 100%),
+    linear-gradient(180deg, #000 0%, #000 88%, transparent 100%);
+}
+
+.matchCard.expanded.finished .winnerHeadshot {
+  flex-basis: 64%;
+  width: 64%;
+  height: 108%;
+  object-position: top center;
+}
+
+.matchCard.expanded.finished .winnerHeadshot + .winnerHeadshot {
+  margin-left: -34%;
+}
+
 .winnerHeadshots.solo {
   right: 56px;
   justify-content: center;
