@@ -1038,9 +1038,9 @@ function Board({ rows, settings, setRoute }) {
                         {!isFinal && <small>thru {result.completed}</small>}
                         {isFinal && <span className="finalPill">Final</span>}
                       </div>
-                      <div className="meta">Strokes: {strokesText(session, match, strokes)}</div>
                       {isExpanded && (
                         <>
+                          <div className="meta">Strokes: {strokesText(session, match, strokes)}</div>
                           <BoardMatchDetails session={session} match={match} result={result} />
                           <button
                             className="detailsButton"
