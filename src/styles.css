@@ -231,6 +231,7 @@ button:disabled {
   position: relative;
   z-index: 1;
   display: block;
+  color: #f5f5f5;
   font-size: 58px;
   line-height: 1;
   letter-spacing: -0.06em;
@@ -687,6 +688,7 @@ small {
 
 .holeCard {
   margin-top: 14px;
+  padding: 10px;
 }
 
 .scorecardStrip {
@@ -703,13 +705,13 @@ small {
 .scorecardStrip .holeGrid button {
   min-height: 58px;
   display: grid;
-  grid-template-rows: minmax(16px, 1fr) minmax(22px, 1fr);
+  grid-template-rows: minmax(15px, 1fr) minmax(19px, 1fr) 7px;
   align-items: center;
   justify-items: center;
   place-items: center;
   justify-content: center;
   gap: 0;
-  padding: 7px 0;
+  padding: 6px 0 5px;
   line-height: 1;
   text-align: center;
 }
@@ -738,6 +740,30 @@ small {
   text-align: center;
 }
 
+.strokeDots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 100%;
+  min-height: 6px;
+}
+
+.strokeDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px #0a0a0a;
+}
+
+.strokeDot.team-jailbirds {
+  background: #1d4ed8;
+}
+
+.strokeDot.team-zookeepers {
+  background: #15803d;
+}
+
 .holeCard.pressScoring {
   border-color: rgba(167, 139, 250, 0.78);
   background: linear-gradient(180deg, rgba(76, 29, 149, 0.36), #171717 42%);
@@ -757,13 +783,13 @@ small {
 }
 
 .holeNav button {
-  width: 54px;
-  height: 54px;
-  border-radius: 18px;
+  width: 38px;
+  height: 38px;
+  border-radius: 13px;
   border: 1px solid #404040;
   background: #171717;
   color: #f5f5f5;
-  font-size: 32px;
+  font-size: 24px;
   line-height: 1;
 }
 
@@ -773,16 +799,16 @@ small {
 
 .holeNav strong {
   display: block;
-  font-size: 64px;
+  font-size: 40px;
   line-height: 0.95;
   letter-spacing: -0.07em;
 }
 
 .sideScorer {
-  margin-top: 16px;
-  padding: 14px;
+  margin-top: 10px;
+  padding: 10px;
   border: 1px solid #262626;
-  border-radius: 24px;
+  border-radius: 20px;
   background: #0a0a0a;
 }
 
@@ -823,9 +849,18 @@ small {
   text-transform: uppercase;
 }
 
+.sideScorer h3 {
+  font-size: 20px;
+  line-height: 1.05;
+}
+
+.sideScorer small {
+  line-height: 1.25;
+}
+
 .sideScorerTop strong {
   margin-left: auto;
-  font-size: 38px;
+  font-size: 32px;
   line-height: 1;
 }
 
@@ -834,7 +869,7 @@ small {
 }
 
 .strokeBadge {
-  padding: 7px 9px;
+  padding: 6px 8px;
   border-radius: 10px;
   background: #facc15;
   color: #111827;
@@ -844,7 +879,7 @@ small {
 }
 
 .winnerBadge {
-  padding: 7px 9px;
+  padding: 6px 8px;
   border-radius: 10px;
   background: #f5f5f5;
   color: #0a0a0a;
@@ -855,14 +890,14 @@ small {
 
 .scoreGrid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  margin-top: 12px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 7px;
+  margin-top: 9px;
 }
 
 .scoreButton {
-  height: 58px;
-  border-radius: 18px;
+  height: 44px;
+  border-radius: 15px;
   border: 1px solid #404040;
   background: #171717;
   color: #f5f5f5;
@@ -875,15 +910,23 @@ small {
   border-color: #f5f5f5;
 }
 
+.clearScoreButton {
+  color: #ef4444;
+}
+
+.clearScoreButton:disabled {
+  color: rgba(239, 68, 68, 0.42);
+}
+
 .twoButtons {
-  margin-top: 16px;
+  margin-top: 10px;
 }
 
 .twoButtons button,
 .secondary {
   flex: 1;
-  height: 52px;
-  border-radius: 18px;
+  height: 46px;
+  border-radius: 15px;
 }
 
 .secondary {
@@ -1021,6 +1064,10 @@ small {
   font-size: 18px;
 }
 
+.scorecardStrip .strokeDots {
+  display: flex;
+}
+
 .scorecardStrip .holeResult.empty {
   border-color: transparent;
   background: transparent;
@@ -1039,8 +1086,8 @@ small {
 
 .clearPlayerButton {
   width: 100%;
-  min-height: 42px;
-  margin-top: 10px;
+  min-height: 36px;
+  margin-top: 8px;
   border: 1px solid #404040;
   border-radius: 14px;
   background: #111111;

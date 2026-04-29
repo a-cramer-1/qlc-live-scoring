@@ -1088,16 +1088,20 @@ function MatchSelect({ value, onChange, matches = MATCHES }) {
   );
 }
 
-function ScoreButton({ value, current, onClick }) {
+function ScoreButton({ value, current, onClick, className = "", disabled = false }) {
   return (
-    <button className={`scoreButton ${String(value) === String(current ?? "") ? "selected" : ""}`} onClick={onClick}>
+    <button
+      className={`scoreButton ${String(value) === String(current ?? "") ? "selected" : ""} ${className}`.trim()}
+      disabled={disabled}
+      onClick={onClick}
+    >
       {value}
     </button>
   );
 }
 
 function scoreOptions(par) {
-  return [Math.max(1, par - 2), par - 1, par, par + 1, par + 2, par + 3, par + 4, FORFEIT]
+  return [Math.max(1, par - 2), par - 1, par, par + 1, par + 2, par + 3, par + 4, par + 5, FORFEIT]
     .filter((v, i, arr) => v === FORFEIT || (v > 0 && arr.indexOf(v) === i));
 }
 
@@ -1179,14 +1183,38 @@ function Score({ rows, updateRow, route, setRoute, settings }) {
     setGross(side, slotIdx, null);
   }
 
+  function strokeDotsForHole(i) {
+    const dots = [];
+    result.aMaps.forEach((map, slotIdx) => {
+      const count = map[i] || 0;
+      for (let n = 0; n < count; n++) {
+        dots.push({
+          key: `a-${slotIdx}-${n}`,
+          teamClass: `team-${teamKey(sideTeamName(match, "A"))}`,
+          label: slotLabel(session, match.a, slotIdx),
+        });
+      }
+    });
+    result.bMaps.forEach((map, slotIdx) => {
+      const count = map[i] || 0;
+      for (let n = 0; n < count; n++) {
+        dots.push({
+          key: `b-${slotIdx}-${n}`,
+          teamClass: `team-${teamKey(sideTeamName(match, "B"))}`,
+          label: slotLabel(session, match.b, slotIdx),
+        });
+      }
+    });
+    return dots;
+  }
+
   return (
     <main className="page narrow">
       <section className="card">
-        <div className="eyebrow">Mobile score entry</div>
+        <div className="eyebrow">Select a Match</div>
         <MatchSelect value={selectedMatchId} onChange={selectMatch} matches={availableMatches} />
         <div className="matchSummary">
           <small>{session.label} · {session.format} · {course.label}</small>
-          <h2>{sideLabel(match.a)} vs {sideLabel(match.b)}</h2>
           <p className={`matchStatusLine ${statusTeamClass}`}>{result.status}</p>
           {result.press && <p className="pressSummary">{result.press.status}</p>}
           <small>Net strokes: {strokesText(session, match, strokes)}</small>
@@ -1195,24 +1223,32 @@ function Score({ rows, updateRow, route, setRoute, settings }) {
 
       <section className="card scorecardStrip">
         <div className="holeGrid">
-          {course.holes.map((h, i) => (
-            <button
-              key={h}
-              className={[
-                i === holeIdx ? "selected" : "",
-                result.holeResults[i] ? "complete" : "",
-                resultTeamClass(match, result.holeResults[i]),
-                result.holeResults[i] === "HALVE" ? "halved" : "",
-                result.press && i >= result.press.startIdx && i <= result.press.endIdx ? "pressHoleButton" : "",
-              ].filter(Boolean).join(" ")}
-              onClick={() => setHoleIdx(i)}
-            >
-              <strong>{h}</strong>
-              <span className={holeResultClasses(match, result.holeResults[i])}>
-                {holeResultLabel(match, result.holeResults[i])}
-              </span>
-            </button>
-          ))}
+          {course.holes.map((h, i) => {
+            const strokeDots = strokeDotsForHole(i);
+            return (
+              <button
+                key={h}
+                className={[
+                  i === holeIdx ? "selected" : "",
+                  result.holeResults[i] ? "complete" : "",
+                  resultTeamClass(match, result.holeResults[i]),
+                  result.holeResults[i] === "HALVE" ? "halved" : "",
+                  result.press && i >= result.press.startIdx && i <= result.press.endIdx ? "pressHoleButton" : "",
+                ].filter(Boolean).join(" ")}
+                onClick={() => setHoleIdx(i)}
+              >
+                <strong>{h}</strong>
+                <span className={holeResultClasses(match, result.holeResults[i])}>
+                  {holeResultLabel(match, result.holeResults[i])}
+                </span>
+                <span className="strokeDots" aria-label={strokeDots.map((dot) => `${dot.label} stroke`).join(", ") || undefined}>
+                  {strokeDots.map((dot) => (
+                    <span key={dot.key} className={`strokeDot ${dot.teamClass}`} />
+                  ))}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </section>
 
@@ -1281,8 +1317,8 @@ function SideScorer({ label, side, teamName, stroke, winningScore, current, opti
         {options.map((n) => (
           <ScoreButton key={n} value={n} current={current} onClick={() => onSelect(n)} />
         ))}
+        <ScoreButton value="C" current={current} className="clearScoreButton" disabled={current === null} onClick={onClear} />
       </div>
-      <button className="clearPlayerButton" disabled={current === null} onClick={onClear}>Clear {label}</button>
     </div>
   );
 }
@@ -1347,7 +1383,7 @@ function AdminGate({ children }) {
 
 function Admin({ rows, updateRow, settings, updateSettings }) {
   async function clearAllScores() {
-    const confirmed = window.confirm("Clear every score and stroke override?");
+    const confirmed = window.confirm("Clear every entered score? Stroke settings will stay unchanged.");
     if (!confirmed) return;
 
     for (const match of MATCHES) {
@@ -1355,9 +1391,6 @@ function Admin({ rows, updateRow, settings, updateSettings }) {
       await updateRow(match.id, {
         gross_a: blank.gross_a,
         gross_b: blank.gross_b,
-        manual_a: blank.manual_a,
-        manual_b: blank.manual_b,
-        manual_player_strokes: blank.manual_player_strokes,
       });
     }
   }
