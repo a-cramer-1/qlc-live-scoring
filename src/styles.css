@@ -485,27 +485,27 @@ p {
 
 .matchCard.expanded.finished .winnerHeadshots {
   right: 0;
-  bottom: -18px;
+  bottom: -34px;
   align-items: flex-end;
-  width: min(86%, 430px);
-  height: calc(100% + 28px);
+  width: min(90%, 460px);
+  height: calc(100% + 58px);
   -webkit-mask-image:
     linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.2) 10%, #000 30%, #000 100%),
-    linear-gradient(180deg, transparent 0%, #000 8%, #000 100%);
+    linear-gradient(180deg, transparent 0%, #000 2%, #000 100%);
   mask-image:
     linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.2) 10%, #000 30%, #000 100%),
-    linear-gradient(180deg, transparent 0%, #000 8%, #000 100%);
+    linear-gradient(180deg, transparent 0%, #000 2%, #000 100%);
 }
 
 .matchCard.expanded.finished .winnerHeadshot {
-  flex-basis: 58%;
-  width: 58%;
-  height: 112%;
+  flex-basis: 62%;
+  width: 62%;
+  height: 124%;
   object-position: bottom center;
 }
 
 .matchCard.expanded.finished .winnerHeadshot + .winnerHeadshot {
-  margin-left: -18%;
+  margin-left: -26%;
 }
 
 .winnerHeadshots.solo {
@@ -538,20 +538,29 @@ p {
 }
 
 .matchCard.expanded.finished .winnerHeadshot.headshot-player-cramer {
-  transform: scale(0.8);
+  transform: scale(0.92);
   transform-origin: bottom center;
 }
 
 .matchCard.expanded.finished .winnerHeadshot.headshot-player-michael {
-  transform: scale(0.9);
+  transform: scale(1.02);
   transform-origin: bottom center;
 }
 
-.matchCard.expanded.finished .winnerHeadshot.headshot-player-josh,
-.matchCard.expanded.finished .winnerHeadshot.headshot-player-rij,
+.matchCard.expanded.finished .winnerHeadshot.headshot-player-josh {
+  transform: translateY(0) scale(1.08);
+  transform-origin: bottom center;
+}
+
+.matchCard.expanded.finished .winnerHeadshot.headshot-player-rij {
+  transform: scale(0.96);
+  transform-origin: bottom center;
+}
+
 .matchCard.expanded.finished .winnerHeadshot.headshot-player-marshall,
 .matchCard.expanded.finished .winnerHeadshot.headshot-player-jake,
 .matchCard.expanded.finished .winnerHeadshot.headshot-player-bernie {
+  transform: scale(1);
   transform-origin: bottom center;
 }
 
