@@ -52,7 +52,7 @@ const SESSIONS = [
     matches: [
       { tee: 1, a: ["Josh", "Rij"], b: ["Spencer", "Howie"], playerStrokeOverride: { Josh: 0, Rij: 5, Spencer: 3, Howie: 2 } },
       { tee: 2, a: ["Cramer", "Michael"], b: ["Larry", "Wolf"], playerStrokeOverride: { Cramer: 0, Michael: 3, Larry: 4, Wolf: 2 } },
-      { tee: 3, a: ["Marshall", "Jake"], b: ["Zach", "Kaelan"], playerStrokeOverride: { Marshall: 5, Jake: 6, Zach: 1, Kaelan: 0 } },
+      { tee: 3, a: ["Marshall", "Jake"], b: ["Zach", "Kaelan"], playerStrokeOverride: { Marshall: 6, Jake: 7, Zach: 1, Kaelan: 0 } },
       { tee: 4, a: ["Bernie"], b: ["Ziv"], twosome: true, playerStrokeOverride: { Bernie: 0, Ziv: 7 } },
     ],
   },
@@ -65,9 +65,9 @@ const SESSIONS = [
     nine: "back",
     matches: [
       { tee: 1, a: ["Michael"], b: ["Spencer"], twosome: true, strokeOverride: { a: 2, b: 0 } },
-      { tee: 2, a: ["Rij", "Jake"], b: ["Howie", "Wolf"], strokeOverride: { a: 1, b: 0 } },
-      { tee: 3, a: ["Cramer", "Marshall"], b: ["Zach", "Ziv"], strokeOverride: { a: 1, b: 0 } },
-      { tee: 4, a: ["Josh", "Bernie"], b: ["Kaelan", "Larry"], strokeOverride: { a: 0, b: 2 } },
+      { tee: 2, a: ["Rij", "Jake"], b: ["Howie", "Wolf"], strokeOverride: { a: 2, b: 0 } },
+      { tee: 3, a: ["Cramer", "Marshall"], b: ["Zach", "Ziv"], strokeOverride: { a: 2, b: 0 } },
+      { tee: 4, a: ["Josh", "Bernie"], b: ["Kaelan", "Larry"], strokeOverride: { a: 0, b: 4 } },
     ],
   },
   {
@@ -79,8 +79,8 @@ const SESSIONS = [
     nine: "front",
     matches: [
       { tee: 1, a: ["Cramer", "Jake"], b: ["Howie", "Larry"], strokeOverride: { a: 0, b: 0 } },
-      { tee: 2, a: ["Bernie", "Marshall"], b: ["Spencer", "Wolf"], strokeOverride: { a: 0, b: 1 } },
-      { tee: 3, a: ["Michael", "Rij"], b: ["Kaelan", "Ziv"], strokeOverride: { a: 1, b: 0 } },
+      { tee: 2, a: ["Bernie", "Marshall"], b: ["Spencer", "Wolf"], strokeOverride: { a: 0, b: 2 } },
+      { tee: 3, a: ["Michael", "Rij"], b: ["Kaelan", "Ziv"], strokeOverride: { a: 2, b: 0 } },
       { tee: 4, a: ["Josh"], b: ["Zach"], twosome: true, strokeOverride: { a: 0, b: 0 } },
     ],
   },
@@ -96,7 +96,7 @@ const SESSIONS = [
       { tee: 2, a: ["Cramer"], b: ["Howie"], twosome: true, strokeOverride: { a: 0, b: 0 } },
       { tee: 3, a: ["Bernie"], b: ["Ziv"], twosome: true, strokeOverride: { a: 0, b: 7 } },
       { tee: 4, a: ["Rij"], b: ["Kaelan"], twosome: true, strokeOverride: { a: 6, b: 0 } },
-      { tee: 5, a: ["Marshall"], b: ["Larry"], twosome: true, strokeOverride: { a: 0, b: 1 } },
+      { tee: 5, a: ["Marshall"], b: ["Larry"], twosome: true, strokeOverride: { a: 0, b: 0 } },
       { tee: 6, a: ["Josh", "Michael"], b: ["Zach", "Spencer"], strokeOverride: { a: 1, b: 0 } },
     ],
   },
