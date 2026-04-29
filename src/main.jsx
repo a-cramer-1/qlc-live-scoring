@@ -114,6 +114,7 @@ const FORFEIT = "X";
 const DEFAULT_SETTINGS = {
   visibleSessionIds: ["sat-am", "sat-pm"],
   sessionOrder: ["sat-am", "sat-pm", "sun-am", "sun-pm"],
+  lockedSessionIds: [],
 };
 
 function playerHandicap(player) {
@@ -396,10 +397,14 @@ function normalizeSettings(settings) {
   const ordered = Array.isArray(settings?.sessionOrder)
     ? settings.sessionOrder.filter((id) => sessionIds.includes(id))
     : DEFAULT_SETTINGS.sessionOrder;
+  const locked = Array.isArray(settings?.lockedSessionIds)
+    ? settings.lockedSessionIds.filter((id) => sessionIds.includes(id))
+    : DEFAULT_SETTINGS.lockedSessionIds;
 
   return {
     visibleSessionIds: visible.length ? visible : DEFAULT_SETTINGS.visibleSessionIds,
     sessionOrder: [...ordered, ...sessionIds.filter((id) => !ordered.includes(id))],
+    lockedSessionIds: locked,
   };
 }
 
@@ -428,6 +433,10 @@ function orderedSessions(settings, options = {}) {
 
 function visibleMatches(settings) {
   return orderedSessions(settings).flatMap((session) => session.matches.map((match) => ({ ...match, session })));
+}
+
+function isSessionLocked(settings, sessionId) {
+  return normalizeSettings(settings).lockedSessionIds.includes(sessionId);
 }
 
 function summarizeMatchSegment(match, holeResults, startIdx, endIdx, pointsValue, options = {}) {
@@ -965,8 +974,8 @@ function PressBoardCard({ session, match, result, isExpanded, onAction, onDetail
 }
 
 function Board({ rows, settings, setRoute }) {
-  const [expandedMatchId, setExpandedMatchId] = useState(null);
-  const [expandedPressId, setExpandedPressId] = useState(null);
+  const [expandedMatchIds, setExpandedMatchIds] = useState(() => new Set());
+  const [expandedPressIds, setExpandedPressIds] = useState(() => new Set());
 
   function scoreMatch(matchId) {
     const next = { view: "score", matchId };
@@ -975,19 +984,21 @@ function Board({ rows, settings, setRoute }) {
   }
 
   function handleMatchCardAction(matchId, isExpanded) {
-    if (isExpanded) {
-      setExpandedMatchId(null);
-      return;
-    }
-    setExpandedMatchId(matchId);
+    setExpandedMatchIds((current) => {
+      const next = new Set(current);
+      if (isExpanded) next.delete(matchId);
+      else next.add(matchId);
+      return next;
+    });
   }
 
   function handlePressCardAction(matchId, isExpanded) {
-    if (isExpanded) {
-      setExpandedPressId(null);
-      return;
-    }
-    setExpandedPressId(matchId);
+    setExpandedPressIds((current) => {
+      const next = new Set(current);
+      if (isExpanded) next.delete(matchId);
+      else next.add(matchId);
+      return next;
+    });
   }
 
   return (
@@ -1006,8 +1017,8 @@ function Board({ rows, settings, setRoute }) {
               {session.matches.map((match) => {
                 const result = computeMatch(session, match, rows[match.id]);
                 const strokes = matchStrokes(session, match, rows[match.id]);
-                const isExpanded = expandedMatchId === match.id;
-                const isPressExpanded = expandedPressId === match.id;
+                const isExpanded = expandedMatchIds.has(match.id);
+                const isPressExpanded = expandedPressIds.has(match.id);
                 const leadingClass = leadingTeamClass(match, result);
                 const isFinal = result.pointsA + result.pointsB > 0;
                 const baseWinnerSide = winningSide(result);
@@ -1164,6 +1175,7 @@ function Score({ rows, updateRow, route, setRoute, settings }) {
   const bSlotCount = sideSlotCount(session, match.b);
   const isPressHole = result.press && holeIdx >= result.press.startIdx && holeIdx <= result.press.endIdx;
   const statusTeamClass = leadingTeamClass(match, result).replace("leading-", "status-");
+  const sessionLocked = isSessionLocked(settings, session.id);
 
   function selectMatch(matchId) {
     const next = { view: "score", matchId };
@@ -1172,6 +1184,7 @@ function Score({ rows, updateRow, route, setRoute, settings }) {
   }
 
   function setGross(side, slotIdx, value) {
+    if (sessionLocked) return;
     const key = side === "a" ? "gross_a" : "gross_b";
     const slotCount = side === "a" ? aSlotCount : bSlotCount;
     updateRow(match.id, (currentRow) => ({
@@ -1217,6 +1230,7 @@ function Score({ rows, updateRow, route, setRoute, settings }) {
           <small>{session.label} · {session.format} · {course.label}</small>
           <p className={`matchStatusLine ${statusTeamClass}`}>{result.status}</p>
           {result.press && <p className="pressSummary">{result.press.status}</p>}
+          {sessionLocked && <p className="lockNotice">Session locked · scores are read-only</p>}
           <small>Net strokes: {strokesText(session, match, strokes)}</small>
         </div>
       </section>
@@ -1274,6 +1288,7 @@ function Score({ rows, updateRow, route, setRoute, settings }) {
             winningScore={winningScoreForSlot(row, result, "a", aSlotCount, slotIdx, holeIdx)}
             current={getScore(row.gross_a, aSlotCount, slotIdx, holeIdx)}
             options={options}
+            locked={sessionLocked}
             onSelect={(n) => setGross("a", slotIdx, n)}
             onClear={() => clearGross("a", slotIdx)}
           />
@@ -1288,6 +1303,7 @@ function Score({ rows, updateRow, route, setRoute, settings }) {
             winningScore={winningScoreForSlot(row, result, "b", bSlotCount, slotIdx, holeIdx)}
             current={getScore(row.gross_b, bSlotCount, slotIdx, holeIdx)}
             options={options}
+            locked={sessionLocked}
             onSelect={(n) => setGross("b", slotIdx, n)}
             onClear={() => clearGross("b", slotIdx)}
           />
@@ -1301,9 +1317,9 @@ function Score({ rows, updateRow, route, setRoute, settings }) {
   );
 }
 
-function SideScorer({ label, side, teamName, stroke, winningScore, current, options, onSelect, onClear }) {
+function SideScorer({ label, side, teamName, stroke, winningScore, current, options, locked, onSelect, onClear }) {
   return (
-    <div className={`sideScorer team-${teamKey(teamName)} ${stroke ? "hasStroke" : ""} ${winningScore ? "winningScore" : ""}`}>
+    <div className={`sideScorer team-${teamKey(teamName)} ${stroke ? "hasStroke" : ""} ${winningScore ? "winningScore" : ""} ${locked ? "locked" : ""}`}>
       <div className="sideScorerTop">
         <div>
           <h3>{label}</h3>
@@ -1314,9 +1330,9 @@ function SideScorer({ label, side, teamName, stroke, winningScore, current, opti
       </div>
       <div className="scoreGrid">
         {options.map((n) => (
-          <ScoreButton key={n} value={n} current={current} onClick={() => onSelect(n)} />
+          <ScoreButton key={n} value={n} current={current} disabled={locked} onClick={() => onSelect(n)} />
         ))}
-        <ScoreButton value="C" current={current} className="clearScoreButton" disabled={current === null} onClick={onClear} />
+        <ScoreButton value="C" current={current} className="clearScoreButton" disabled={locked || current === null} onClick={onClear} />
       </div>
     </div>
   );
@@ -1382,10 +1398,11 @@ function AdminGate({ children }) {
 
 function Admin({ rows, updateRow, settings, updateSettings }) {
   async function clearAllScores() {
-    const confirmed = window.confirm("Clear every entered score? Stroke settings will stay unchanged.");
+    const confirmed = window.confirm("Clear every entered score in unlocked sessions? Stroke settings and locked sessions will stay unchanged.");
     if (!confirmed) return;
 
     for (const match of MATCHES) {
+      if (isSessionLocked(settings, match.session.id)) continue;
       const blank = blankRow(match);
       await updateRow(match.id, {
         gross_a: blank.gross_a,
@@ -1400,6 +1417,15 @@ function Admin({ rows, updateRow, settings, updateSettings }) {
       if (visible.has(sessionId)) visible.delete(sessionId);
       else visible.add(sessionId);
       return { visibleSessionIds: Array.from(visible) };
+    });
+  }
+
+  function toggleSessionLock(sessionId) {
+    updateSettings((current) => {
+      const locked = new Set(current.lockedSessionIds);
+      if (locked.has(sessionId)) locked.delete(sessionId);
+      else locked.add(sessionId);
+      return { lockedSessionIds: Array.from(locked) };
     });
   }
 
@@ -1419,11 +1445,15 @@ function Admin({ rows, updateRow, settings, updateSettings }) {
   }
 
   function updateManual(matchId, side, raw) {
+    const match = MATCHES.find((m) => m.id === matchId);
+    if (match && isSessionLocked(settings, match.session.id)) return;
     const value = raw === "" ? null : Number(raw.replace(/[^0-9]/g, "").slice(0, 2));
     updateRow(matchId, { [side]: value });
   }
 
   function updateManualPlayer(matchId, player, raw) {
+    const match = MATCHES.find((m) => m.id === matchId);
+    if (match && isSessionLocked(settings, match.session.id)) return;
     const value = raw === "" ? null : Number(raw.replace(/[^0-9]/g, "").slice(0, 2));
     updateRow(matchId, (currentRow) => {
       const manualPlayerStrokes = { ...(currentRow.manual_player_strokes || {}) };
@@ -1444,6 +1474,7 @@ function Admin({ rows, updateRow, settings, updateSettings }) {
 
   function updateGrossSlot(matchId, key, slotIdx, holeIdx, raw) {
     const match = MATCHES.find((m) => m.id === matchId);
+    if (match && isSessionLocked(settings, match.session.id)) return;
     const slotCount = key === "gross_a" ? sideSlotCount(match.session, match.a) : sideSlotCount(match.session, match.b);
     const cleaned = raw.trim().toUpperCase() === FORFEIT ? FORFEIT : raw === "" ? null : Number(raw.replace(/[^0-9]/g, "").slice(0, 2));
     updateRow(matchId, (currentRow) => ({
@@ -1473,6 +1504,20 @@ function Admin({ rows, updateRow, settings, updateSettings }) {
           <div className="presetButtons">
             <button onClick={() => updateSettings({ visibleSessionIds: ["sat-am", "sat-pm"] })}>Hide Sunday</button>
             <button onClick={() => updateSettings({ visibleSessionIds: SESSIONS.map((session) => session.id) })}>Reveal All</button>
+          </div>
+
+          <h3>Session Locks</h3>
+          <div className="visibilityGrid">
+            {SESSIONS.map((session) => (
+              <label className="checkRow" key={session.id}>
+                <input
+                  type="checkbox"
+                  checked={isSessionLocked(settings, session.id)}
+                  onChange={() => toggleSessionLock(session.id)}
+                />
+                <span>{session.shortLabel} · Locked</span>
+              </label>
+            ))}
           </div>
 
           <h3>Session Order</h3>
@@ -1505,6 +1550,7 @@ function Admin({ rows, updateRow, settings, updateSettings }) {
                 <h2>{session.shortLabel}</h2>
                 <p>{session.format} · {COURSE[session.nine].label}</p>
               </div>
+              {isSessionLocked(settings, session.id) && <span className="lockPill">Locked</span>}
             </div>
             {session.matches.map((match) => {
               const row = rows[match.id];
@@ -1515,8 +1561,9 @@ function Admin({ rows, updateRow, settings, updateSettings }) {
               const course = COURSE[session.nine];
               const aSlotCount = sideSlotCount(session, match.a);
               const bSlotCount = sideSlotCount(session, match.b);
+              const sessionLocked = isSessionLocked(settings, session.id);
               return (
-                <div className="adminMatch" key={match.id}>
+                <div className={`adminMatch ${sessionLocked ? "locked" : ""}`} key={match.id}>
                   <strong>{sideLabel(match.a)} vs {sideLabel(match.b)}</strong>
                   <small>{result.status}</small>
                   {isBestBall(session) ? (
@@ -1529,6 +1576,7 @@ function Admin({ rows, updateRow, settings, updateSettings }) {
                             <input
                               value={row.manual_player_strokes?.[player] ?? ""}
                               placeholder={String(calculatedPlayers[player])}
+                              disabled={sessionLocked}
                               onChange={(e) => updateManualPlayer(match.id, player, e.target.value)}
                             />
                           </label>
@@ -1539,11 +1587,11 @@ function Admin({ rows, updateRow, settings, updateSettings }) {
                     <div className="manualGrid">
                       <label>
                         {sideLabel(match.a)} strokes
-                        <input value={row.manual_a ?? ""} placeholder={String(calculated.a)} onChange={(e) => updateManual(match.id, "manual_a", e.target.value)} />
+                        <input value={row.manual_a ?? ""} placeholder={String(calculated.a)} disabled={sessionLocked} onChange={(e) => updateManual(match.id, "manual_a", e.target.value)} />
                       </label>
                       <label>
                         {sideLabel(match.b)} strokes
-                        <input value={row.manual_b ?? ""} placeholder={String(calculated.b)} onChange={(e) => updateManual(match.id, "manual_b", e.target.value)} />
+                        <input value={row.manual_b ?? ""} placeholder={String(calculated.b)} disabled={sessionLocked} onChange={(e) => updateManual(match.id, "manual_b", e.target.value)} />
                       </label>
                     </div>
                   )}
@@ -1563,6 +1611,7 @@ function Admin({ rows, updateRow, settings, updateSettings }) {
                               <td key={h}>
                                 <input
                                   value={getScore(row.gross_a, aSlotCount, slotIdx, i) ?? ""}
+                                  disabled={sessionLocked}
                                   onChange={(e) => updateGrossSlot(match.id, "gross_a", slotIdx, i, e.target.value)}
                                 />
                               </td>
@@ -1576,6 +1625,7 @@ function Admin({ rows, updateRow, settings, updateSettings }) {
                               <td key={h}>
                                 <input
                                   value={getScore(row.gross_b, bSlotCount, slotIdx, i) ?? ""}
+                                  disabled={sessionLocked}
                                   onChange={(e) => updateGrossSlot(match.id, "gross_b", slotIdx, i, e.target.value)}
                                 />
                               </td>

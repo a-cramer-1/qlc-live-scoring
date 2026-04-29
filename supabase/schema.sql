@@ -20,7 +20,7 @@ create table if not exists public.app_settings (
 insert into public.app_settings (id, settings)
 values (
   'global',
-  '{"visibleSessionIds":["sat-am","sat-pm"],"sessionOrder":["sat-am","sat-pm","sun-am","sun-pm"]}'::jsonb
+  '{"visibleSessionIds":["sat-am","sat-pm"],"sessionOrder":["sat-am","sat-pm","sun-am","sun-pm"],"lockedSessionIds":[]}'::jsonb
 )
 on conflict (id) do nothing;
 
