@@ -26,6 +26,8 @@ const PLAYER_HEADSHOTS = Object.fromEntries(
   Object.keys(PLAYER_TEAM).map((player) => [player, `/assets/winners/singles/${player.toLowerCase()}.png`])
 );
 
+const TIE_HEADSHOT = "/assets/qlc-white.png";
+
 const WINNER_PAIR_HEADSHOTS = {
   "Bernie|Josh": "/assets/winners/pairs/josh-bernie.png",
   "Bernie|Marshall": "/assets/winners/pairs/bernie-marshall.png",
@@ -934,10 +936,10 @@ function BoardMatchDetails({ session, match, result }) {
   );
 }
 
-function WinnerHeadshots({ players, compact = false }) {
-  const winnerImage = winnerImageForPlayers(players);
+function WinnerHeadshots({ players, compact = false, tie = false }) {
+  const winnerImage = tie ? TIE_HEADSHOT : winnerImageForPlayers(players);
   if (!winnerImage) return null;
-  const imageClass = players.length === 1 ? "solo" : "pair";
+  const imageClass = tie ? "tie" : players.length === 1 ? "solo" : "pair";
 
   return (
     <div className={`winnerHeadshots ${compact ? "compact" : ""} ${imageClass}`} aria-hidden="true">
@@ -957,13 +959,15 @@ function PressBoardCard({ session, match, result, isExpanded, onAction, onDetail
   const press = result.press;
   if (!press) return null;
   const pressWinnerSide = winningSide(press);
+  const isPressFinal = segmentIsFinal(press);
+  const isPressHalved = isPressFinal && !pressWinnerSide;
   const pressWinnerPlayers = pressWinnerSide ? (pressWinnerSide === "A" ? match.a : match.b) : [];
 
   return (
     <div
       role="button"
       tabIndex={0}
-      className={`pressCard ${leadingTeamClass(match, press)} ${segmentIsFinal(press) ? "finished" : ""} ${isExpanded ? "expanded" : ""}`}
+      className={`pressCard ${leadingTeamClass(match, press)} ${isPressFinal ? "finished" : ""} ${isExpanded ? "expanded" : ""}`}
       onClick={onAction}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -973,7 +977,7 @@ function PressBoardCard({ session, match, result, isExpanded, onAction, onDetail
       }}
       aria-expanded={isExpanded}
     >
-      <WinnerHeadshots players={pressWinnerPlayers} compact />
+      <WinnerHeadshots players={pressWinnerPlayers} compact tie={isPressHalved} />
       <div>
         <small>Press {pressRangeLabel(course, press)} · 0.5 pt</small>
         <strong className={sideNameClass(match, press, "A")}>{sideLabel(match.a)}</strong>
@@ -981,7 +985,7 @@ function PressBoardCard({ session, match, result, isExpanded, onAction, onDetail
       </div>
       <div className="right">
         <strong>{press.compact}</strong>
-        {segmentIsFinal(press) && <span className="finalPill">Final</span>}
+        {isPressFinal && <span className="finalPill">Final</span>}
       </div>
       {isExpanded && (
         <>
@@ -1055,6 +1059,7 @@ function Board({ rows, settings, setRoute }) {
                 const leadingClass = leadingTeamClass(match, result);
                 const isFinal = segmentIsFinal(result);
                 const baseWinnerSide = winningSide(result);
+                const baseIsHalved = isFinal && !baseWinnerSide;
                 const baseWinnerPlayers = isFinal && baseWinnerSide ? (baseWinnerSide === "A" ? match.a : match.b) : [];
                 return (
                   <React.Fragment key={match.id}>
@@ -1071,7 +1076,7 @@ function Board({ rows, settings, setRoute }) {
                       }}
                       aria-expanded={isExpanded}
                     >
-                      <WinnerHeadshots players={baseWinnerPlayers} />
+                      <WinnerHeadshots players={baseWinnerPlayers} tie={baseIsHalved} />
                       <div>
                         <small>Match {match.tee} · 1 pt</small>
                         <strong className={sideNameClass(match, result, "A")}>{sideLabel(match.a)}</strong>

@@ -504,10 +504,35 @@ p {
   width: min(46%, 240px);
 }
 
+.winnerHeadshots.tie {
+  right: 56px;
+  width: min(34%, 180px);
+  height: 100%;
+  opacity: 0.46;
+  filter: none;
+}
+
+.winnerHeadshots.tie::after {
+  background: none;
+}
+
+.winnerHeadshots.tie .winnerHeadshot {
+  object-position: center;
+}
+
 .matchCard.expanded.finished .winnerHeadshots.solo {
   left: 50%;
   right: auto;
   width: min(72%, 400px);
+  transform: translateX(-50%);
+}
+
+.matchCard.expanded.finished .winnerHeadshots.tie {
+  left: 58%;
+  right: auto;
+  width: min(40%, 240px);
+  height: 92%;
+  opacity: 0.48;
   transform: translateX(-50%);
 }
 
@@ -524,6 +549,13 @@ p {
   width: min(48%, 210px);
 }
 
+.winnerHeadshots.compact.tie {
+  right: 46px;
+  width: min(34%, 160px);
+  height: 100%;
+  opacity: 0.44;
+}
+
 .pressCard.expanded.finished .winnerHeadshots.compact {
   left: 50%;
   right: auto;
@@ -536,6 +568,15 @@ p {
 
 .pressCard.expanded.finished .winnerHeadshots.compact.solo {
   width: min(70%, 360px);
+}
+
+.pressCard.expanded.finished .winnerHeadshots.compact.tie {
+  left: 58%;
+  right: auto;
+  width: min(38%, 220px);
+  height: 92%;
+  opacity: 0.46;
+  transform: translateX(-50%);
 }
 
 .finalPill {
