@@ -380,6 +380,14 @@ p {
     linear-gradient(105deg, var(--zookeepers-soft) 0%, rgba(17, 38, 27, 0.82) 42%, rgba(10, 10, 10, 0.88) 100%);
 }
 
+.matchCard.leading-tied,
+.pressCard.leading-tied {
+  border-color: rgba(163, 163, 163, 0.78);
+  background:
+    radial-gradient(ellipse at 76% 54%, rgba(163, 163, 163, 0.13), transparent 58%),
+    linear-gradient(105deg, rgba(64, 64, 64, 0.54) 0%, rgba(38, 38, 38, 0.72) 42%, rgba(10, 10, 10, 0.88) 100%);
+}
+
 .sideName.team-jailbirds {
   color: #93c5fd;
 }
@@ -417,6 +425,12 @@ p {
 .pressCard.finished.leading-zookeepers {
   border-color: #86efac;
   box-shadow: inset 0 0 0 1px rgba(134, 239, 172, 0.38), 0 0 0 1px rgba(134, 239, 172, 0.22);
+}
+
+.matchCard.finished.leading-tied,
+.pressCard.finished.leading-tied {
+  border-color: #d4d4d4;
+  box-shadow: inset 0 0 0 1px rgba(212, 212, 212, 0.34), 0 0 0 1px rgba(212, 212, 212, 0.18);
 }
 
 .matchCard.finished::after,

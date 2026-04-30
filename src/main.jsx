@@ -200,7 +200,12 @@ function sideNameClass(match, result, side) {
 function leadingTeamClass(match, result) {
   if (result.diff > 0) return `leading-${teamKey(sideTeamName(match, "A"))}`;
   if (result.diff < 0) return `leading-${teamKey(sideTeamName(match, "B"))}`;
+  if (result.completed > 0) return "leading-tied";
   return "";
+}
+
+function segmentIsFinal(result) {
+  return result.pointsA + result.pointsB > 0 || (result.completed === result.totalHoles && result.completed > 0);
 }
 
 function winningSide(result) {
@@ -511,7 +516,7 @@ function summarizeMatchSegment(match, holeResults, startIdx, endIdx, pointsValue
     if (completed === totalHoles) {
       if (diff === 0) {
         status = options.halvedStatus || `${prefix}Halved`.trim();
-        compact = options.halvedCompact || "½";
+        compact = options.halvedCompact || "Halved";
         pointsA = options.halvedPointsA ?? pointsValue / 2;
         pointsB = options.halvedPointsB ?? pointsValue / 2;
       } else {
@@ -593,7 +598,7 @@ function computeMatch(session, match, row) {
     notStartedStatus: `Press open for holes ${course.holes.slice(pressStartIdx).join(", ")}`,
     notStartedCompact: "Press open",
     halvedStatus: "Press halved",
-    halvedCompact: "Press AS",
+    halvedCompact: "Halved",
     halvedPointsA: 0,
     halvedPointsB: 0,
   });
@@ -956,7 +961,7 @@ function PressBoardCard({ session, match, result, isExpanded, onAction, onDetail
     <div
       role="button"
       tabIndex={0}
-      className={`pressCard ${leadingTeamClass(match, press)} ${press.pointsA + press.pointsB > 0 ? "finished" : ""} ${isExpanded ? "expanded" : ""}`}
+      className={`pressCard ${leadingTeamClass(match, press)} ${segmentIsFinal(press) ? "finished" : ""} ${isExpanded ? "expanded" : ""}`}
       onClick={onAction}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -974,7 +979,7 @@ function PressBoardCard({ session, match, result, isExpanded, onAction, onDetail
       </div>
       <div className="right">
         <strong>{press.compact}</strong>
-        {press.pointsA + press.pointsB > 0 && <span className="finalPill">Final</span>}
+        {segmentIsFinal(press) && <span className="finalPill">Final</span>}
       </div>
       {isExpanded && (
         <>
@@ -1046,7 +1051,7 @@ function Board({ rows, settings, setRoute }) {
                 const isExpanded = expandedMatchIds.has(match.id);
                 const isPressExpanded = expandedPressIds.has(match.id);
                 const leadingClass = leadingTeamClass(match, result);
-                const isFinal = result.pointsA + result.pointsB > 0;
+                const isFinal = segmentIsFinal(result);
                 const baseWinnerSide = winningSide(result);
                 const baseWinnerPlayers = isFinal && baseWinnerSide ? (baseWinnerSide === "A" ? match.a : match.b) : [];
                 return (
