@@ -433,21 +433,21 @@ p {
 
 .winnerHeadshots {
   position: absolute;
-  right: 12px;
-  bottom: -28px;
+  right: 18px;
+  bottom: 0;
   z-index: 0;
-  width: min(68%, 360px);
-  height: 132%;
+  width: min(60%, 320px);
+  height: 112.5%;
   pointer-events: none;
-  opacity: 0.52;
+  opacity: 0.57;
   filter: saturate(0.98) contrast(1.04);
   -webkit-mask-image:
-    linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.18) 10%, #000 32%, #000 100%),
-    linear-gradient(180deg, transparent 0%, #000 6%, #000 94%, transparent 100%);
+    linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.18) 8%, #000 26%, #000 100%),
+    linear-gradient(180deg, #000 0%, #000 100%);
   -webkit-mask-composite: source-in;
   mask-image:
-    linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.18) 10%, #000 32%, #000 100%),
-    linear-gradient(180deg, transparent 0%, #000 6%, #000 94%, transparent 100%);
+    linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.18) 8%, #000 26%, #000 100%),
+    linear-gradient(180deg, #000 0%, #000 100%);
   mask-composite: intersect;
 }
 
@@ -466,44 +466,62 @@ p {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  object-position: bottom right;
+  object-position: bottom center;
 }
 
 .matchCard.expanded.finished .winnerHeadshots {
-  right: 0;
-  bottom: -38px;
-  width: min(92%, 520px);
-  height: calc(100% + 70px);
-  opacity: 0.54;
+  left: 50%;
+  right: auto;
+  bottom: 0;
+  width: min(92%, 580px);
+  height: 128%;
+  opacity: 0.59;
+  transform: translateX(-50%);
   -webkit-mask-image:
-    linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.2) 8%, #000 28%, #000 100%),
-    linear-gradient(180deg, transparent 0%, #000 2%, #000 100%);
+    linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.2) 7%, #000 24%, #000 100%),
+    linear-gradient(180deg, #000 0%, #000 100%);
   mask-image:
-    linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.2) 8%, #000 28%, #000 100%),
-    linear-gradient(180deg, transparent 0%, #000 2%, #000 100%);
+    linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.2) 7%, #000 24%, #000 100%),
+    linear-gradient(180deg, #000 0%, #000 100%);
 }
 
 .winnerHeadshots.solo {
-  right: 36px;
-  width: min(56%, 280px);
+  right: 22px;
+  width: min(46%, 240px);
 }
 
 .matchCard.expanded.finished .winnerHeadshots.solo {
-  right: 24px;
-  width: min(62%, 340px);
+  left: 50%;
+  right: auto;
+  width: min(72%, 400px);
+  transform: translateX(-50%);
 }
 
 .winnerHeadshots.compact {
-  right: 12px;
-  bottom: -24px;
-  width: min(64%, 280px);
-  height: 124%;
-  opacity: 0.44;
+  right: 18px;
+  bottom: 0;
+  width: min(62%, 280px);
+  height: 112.5%;
+  opacity: 0.49;
 }
 
 .winnerHeadshots.compact.solo {
-  right: 36px;
-  width: min(52%, 220px);
+  right: 22px;
+  width: min(48%, 210px);
+}
+
+.pressCard.expanded.finished .winnerHeadshots.compact {
+  left: 50%;
+  right: auto;
+  bottom: 0;
+  width: min(90%, 520px);
+  height: 128%;
+  opacity: 0.54;
+  transform: translateX(-50%);
+}
+
+.pressCard.expanded.finished .winnerHeadshots.compact.solo {
+  width: min(70%, 360px);
 }
 
 .finalPill {
@@ -587,13 +605,31 @@ small {
 
 .boardHole {
   min-width: 0;
-  display: grid;
-  place-items: center;
-  gap: 4px;
-  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 48px;
+  padding: 4px 2px;
   border: 1px solid #262626;
   border-radius: 13px;
   background: rgba(10, 10, 10, 0.7);
+}
+
+.boardHole small {
+  width: 100%;
+  text-align: center;
+  line-height: 1;
+}
+
+.boardHole .holeResult {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  min-height: 24px;
+  border-radius: 8px;
+  font-size: 14px;
 }
 
 .boardHole.masked {
@@ -619,6 +655,11 @@ small {
 .boardHole.pressHole {
   border-color: rgba(167, 139, 250, 0.45);
   background: rgba(76, 29, 149, 0.18);
+}
+
+.boardHole.pressHole .holeResult {
+  width: 28px;
+  min-width: 28px;
 }
 
 .select {

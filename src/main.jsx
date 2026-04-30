@@ -941,6 +941,10 @@ function WinnerHeadshots({ players, compact = false }) {
   );
 }
 
+function pressRangeLabel(course, press) {
+  return `${course.holes[press.startIdx]}-${course.holes[press.endIdx]}`;
+}
+
 function PressBoardCard({ session, match, result, isExpanded, onAction, onDetails }) {
   const course = COURSE[session.nine];
   const press = result.press;
@@ -964,7 +968,7 @@ function PressBoardCard({ session, match, result, isExpanded, onAction, onDetail
     >
       <WinnerHeadshots players={pressWinnerPlayers} compact />
       <div>
-        <small>Press · 0.5 pt · Holes {course.holes.slice(press.startIdx, press.endIdx + 1).join("-")}</small>
+        <small>Press {pressRangeLabel(course, press)} · 0.5 pt</small>
         <strong className={sideNameClass(match, press, "A")}>{sideLabel(match.a)}</strong>
         <strong className={sideNameClass(match, press, "B")}>{sideLabel(match.b)}</strong>
       </div>
