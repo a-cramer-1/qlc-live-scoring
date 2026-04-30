@@ -947,7 +947,9 @@ function WinnerHeadshots({ players, compact = false }) {
 }
 
 function pressRangeLabel(course, press) {
-  return `${course.holes[press.startIdx]}-${course.holes[press.endIdx]}`;
+  const firstHole = course.holes[press.startIdx];
+  const lastHole = course.holes[press.endIdx];
+  return firstHole === lastHole ? `${firstHole}` : `${firstHole}-${lastHole}`;
 }
 
 function PressBoardCard({ session, match, result, isExpanded, onAction, onDetails }) {
@@ -1179,7 +1181,12 @@ function Score({ rows, updateRow, route, setRoute, settings }) {
     setHash(next.view, next.matchId);
   }, [availableMatches, found?.id, selectedMatchId, setRoute]);
 
-  useEffect(() => setHoleIdx(0), [selectedMatchId]);
+  useEffect(() => {
+    if (!found) return;
+    const matchResult = computeMatch(found.session, found, rows[found.id]);
+    const firstOpenHoleIdx = matchResult.holeResults.findIndex((holeResult) => !holeResult);
+    setHoleIdx(firstOpenHoleIdx === -1 ? 8 : firstOpenHoleIdx);
+  }, [selectedMatchId, found?.id]);
 
   if (!found) {
     return (
