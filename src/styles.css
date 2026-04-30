@@ -433,24 +433,21 @@ p {
 
 .winnerHeadshots {
   position: absolute;
-  right: 22px;
-  bottom: -24px;
+  right: 12px;
+  bottom: -28px;
   z-index: 0;
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
-  width: min(62%, 300px);
-  height: 128%;
+  width: min(68%, 360px);
+  height: 132%;
   pointer-events: none;
-  opacity: 0.5;
-  filter: saturate(0.95) contrast(1.05);
+  opacity: 0.52;
+  filter: saturate(0.98) contrast(1.04);
   -webkit-mask-image:
-    linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.12) 14%, #000 42%, #000 100%),
-    linear-gradient(180deg, transparent 0%, #000 15%, #000 88%, transparent 100%);
+    linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.18) 10%, #000 32%, #000 100%),
+    linear-gradient(180deg, transparent 0%, #000 6%, #000 94%, transparent 100%);
   -webkit-mask-composite: source-in;
   mask-image:
-    linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.12) 14%, #000 42%, #000 100%),
-    linear-gradient(180deg, transparent 0%, #000 15%, #000 88%, transparent 100%);
+    linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.18) 10%, #000 32%, #000 100%),
+    linear-gradient(180deg, transparent 0%, #000 6%, #000 94%, transparent 100%);
   mask-composite: intersect;
 }
 
@@ -465,120 +462,48 @@ p {
 }
 
 .winnerHeadshot {
-  flex: 0 0 58%;
-  width: 58%;
+  display: block;
+  width: 100%;
   height: 100%;
   object-fit: contain;
-  object-position: bottom center;
-  min-width: 0;
-  position: relative;
-  z-index: 1;
-}
-
-.winnerHeadshot.headshot-2 {
-  z-index: 2;
-}
-
-.winnerHeadshot + .winnerHeadshot {
-  margin-left: -26%;
+  object-position: bottom right;
 }
 
 .matchCard.expanded.finished .winnerHeadshots {
   right: 0;
-  bottom: -34px;
-  align-items: flex-end;
-  width: min(90%, 460px);
-  height: calc(100% + 58px);
+  bottom: -38px;
+  width: min(92%, 520px);
+  height: calc(100% + 70px);
+  opacity: 0.54;
   -webkit-mask-image:
-    linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.2) 10%, #000 30%, #000 100%),
+    linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.2) 8%, #000 28%, #000 100%),
     linear-gradient(180deg, transparent 0%, #000 2%, #000 100%);
   mask-image:
-    linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.2) 10%, #000 30%, #000 100%),
+    linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.2) 8%, #000 28%, #000 100%),
     linear-gradient(180deg, transparent 0%, #000 2%, #000 100%);
-}
-
-.matchCard.expanded.finished .winnerHeadshot {
-  flex-basis: 62%;
-  width: 62%;
-  height: 124%;
-  object-position: bottom center;
-}
-
-.matchCard.expanded.finished .winnerHeadshot + .winnerHeadshot {
-  margin-left: -26%;
 }
 
 .winnerHeadshots.solo {
-  right: 56px;
-  justify-content: center;
-  width: min(68%, 330px);
+  right: 36px;
+  width: min(56%, 280px);
 }
 
-.winnerHeadshots.solo .winnerHeadshot {
-  flex-basis: 74%;
-  width: 74%;
-}
-
-.winnerHeadshot.headshot-player-rij {
-  transform: scale(0.78);
-  transform-origin: bottom center;
-}
-
-.winnerHeadshot.headshot-player-josh {
-  transform: translateY(10%) scale(0.9);
-  transform-origin: bottom center;
-}
-
-.winnerHeadshot.headshot-player-cramer,
-.winnerHeadshot.headshot-player-marshall,
-.winnerHeadshot.headshot-player-jake,
-.winnerHeadshot.headshot-player-bernie {
-  transform: scale(0.9);
-  transform-origin: bottom center;
-}
-
-.matchCard.expanded.finished .winnerHeadshot.headshot-player-cramer {
-  transform: scale(0.92);
-  transform-origin: bottom center;
-}
-
-.matchCard.expanded.finished .winnerHeadshot.headshot-player-michael {
-  transform: scale(1.02);
-  transform-origin: bottom center;
-}
-
-.matchCard.expanded.finished .winnerHeadshot.headshot-player-josh {
-  transform: translateY(0) scale(1.08);
-  transform-origin: bottom center;
-}
-
-.matchCard.expanded.finished .winnerHeadshot.headshot-player-rij {
-  transform: scale(0.96);
-  transform-origin: bottom center;
-}
-
-.matchCard.expanded.finished .winnerHeadshot.headshot-player-marshall,
-.matchCard.expanded.finished .winnerHeadshot.headshot-player-jake,
-.matchCard.expanded.finished .winnerHeadshot.headshot-player-bernie {
-  transform: scale(1);
-  transform-origin: bottom center;
+.matchCard.expanded.finished .winnerHeadshots.solo {
+  right: 24px;
+  width: min(62%, 340px);
 }
 
 .winnerHeadshots.compact {
-  right: 16px;
-  bottom: -20px;
-  width: min(58%, 230px);
-  height: 122%;
-  opacity: 0.41;
-}
-
-.winnerHeadshots.compact .winnerHeadshot + .winnerHeadshot {
-  margin-left: -30%;
+  right: 12px;
+  bottom: -24px;
+  width: min(64%, 280px);
+  height: 124%;
+  opacity: 0.44;
 }
 
 .winnerHeadshots.compact.solo {
-  right: 46px;
-  width: min(64%, 260px);
+  right: 36px;
+  width: min(52%, 220px);
 }
 
 .finalPill {

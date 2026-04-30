@@ -23,8 +23,41 @@ const PLAYER_TEAM = Object.fromEntries(
 );
 
 const PLAYER_HEADSHOTS = Object.fromEntries(
-  Object.keys(PLAYER_TEAM).map((player) => [player, `/assets/headshots/${player.toLowerCase()}-rbg.png`])
+  Object.keys(PLAYER_TEAM).map((player) => [player, `/assets/winners/singles/${player.toLowerCase()}.png`])
 );
+
+const WINNER_PAIR_HEADSHOTS = {
+  "Bernie|Josh": "/assets/winners/pairs/josh-bernie.png",
+  "Bernie|Marshall": "/assets/winners/pairs/bernie-marshall.png",
+  "Cramer|Jake": "/assets/winners/pairs/cramer-jake.png",
+  "Cramer|Marshall": "/assets/winners/pairs/cramer-marshall.png",
+  "Cramer|Michael": "/assets/winners/pairs/cramer-michael.png",
+  "Howie|Larry": "/assets/winners/pairs/howie-larry.png",
+  "Howie|Spencer": "/assets/winners/pairs/spencer-howie.png",
+  "Howie|Wolf": "/assets/winners/pairs/howie-wolf.png",
+  "Jake|Marshall": "/assets/winners/pairs/marshall-jake.png",
+  "Jake|Rij": "/assets/winners/pairs/rij-jake.png",
+  "Josh|Michael": "/assets/winners/pairs/josh-michael.png",
+  "Josh|Rij": "/assets/winners/pairs/josh-rij.png",
+  "Kaelan|Larry": "/assets/winners/pairs/kaelan-larry.png",
+  "Kaelan|Zach": "/assets/winners/pairs/zach-kaelan.png",
+  "Kaelan|Ziv": "/assets/winners/pairs/kaelan-ziv.png",
+  "Larry|Wolf": "/assets/winners/pairs/larry-wolf.png",
+  "Michael|Rij": "/assets/winners/pairs/michael-rij.png",
+  "Spencer|Wolf": "/assets/winners/pairs/spencer-wolf.png",
+  "Spencer|Zach": "/assets/winners/pairs/zach-spencer.png",
+  "Zach|Ziv": "/assets/winners/pairs/zach-ziv.png",
+};
+
+function playerImageKey(players) {
+  return [...players].sort((a, b) => a.localeCompare(b)).join("|");
+}
+
+function winnerImageForPlayers(players) {
+  if (!players?.length) return "";
+  if (players.length === 1) return PLAYER_HEADSHOTS[players[0]] || "";
+  return WINNER_PAIR_HEADSHOTS[playerImageKey(players)] || "";
+}
 
 const COURSE = {
   front: {
@@ -897,24 +930,13 @@ function BoardMatchDetails({ session, match, result }) {
 }
 
 function WinnerHeadshots({ players, compact = false }) {
-  if (!players?.length) return null;
-  const displayPlayers = [...players].sort((a, b) => {
-    if (a === "Wolf") return -1;
-    if (b === "Wolf") return 1;
-    return 0;
-  });
-  const soloClass = displayPlayers.length === 1 ? "solo" : "";
+  const winnerImage = winnerImageForPlayers(players);
+  if (!winnerImage) return null;
+  const imageClass = players.length === 1 ? "solo" : "pair";
 
   return (
-    <div className={`winnerHeadshots ${compact ? "compact" : ""} ${soloClass}`} aria-hidden="true">
-      {displayPlayers.map((player, idx) => (
-        <img
-          key={player}
-          src={PLAYER_HEADSHOTS[player]}
-          alt=""
-          className={`winnerHeadshot headshot-${idx + 1} headshot-player-${player.toLowerCase()}`}
-        />
-      ))}
+    <div className={`winnerHeadshots ${compact ? "compact" : ""} ${imageClass}`} aria-hidden="true">
+      <img src={winnerImage} alt="" className="winnerHeadshot" />
     </div>
   );
 }
