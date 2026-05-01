@@ -828,22 +828,22 @@ function useAppSettings() {
 
 function getInitialRoute() {
   const hash = window.location.hash.replace(/^#\/?/, "");
-  const [view, matchId] = hash.split("/");
-  if (view === "score" && matchId) return { view: "score", matchId };
-  if (view === "score") return { view: "score", matchId: MATCHES[0].id };
-  if (view === "admin") return { view: "admin", matchId: null };
-  return { view: "board", matchId: null };
+  const [view, matchId, mode] = hash.split("/");
+  if (view === "score" && matchId) return { view: "score", matchId, mode: mode === "scorecard" ? "scorecard" : null };
+  if (view === "score") return { view: "score", matchId: MATCHES[0].id, mode: null };
+  if (view === "admin") return { view: "admin", matchId: null, mode: null };
+  return { view: "board", matchId: null, mode: null };
 }
 
-function setHash(view, matchId) {
-  window.location.hash = view === "score" && matchId ? `/score/${matchId}` : `/${view}`;
+function setHash(view, matchId, mode = null) {
+  window.location.hash = view === "score" && matchId ? `/score/${matchId}${mode === "scorecard" ? "/scorecard" : ""}` : `/${view}`;
 }
 
 function Header({ route, setRoute, syncStatus }) {
   function nav(view) {
-    const next = { view, matchId: view === "score" ? route.matchId || MATCHES[0].id : null };
+    const next = { view, matchId: view === "score" ? route.matchId || MATCHES[0].id : null, mode: null };
     setRoute(next);
-    setHash(next.view, next.matchId);
+    setHash(next.view, next.matchId, next.mode);
   }
 
   return (
@@ -1058,10 +1058,10 @@ function Board({ rows, settings, setRoute }) {
   const [expandedMatchIds, setExpandedMatchIds] = useState(() => new Set());
   const [expandedPressIds, setExpandedPressIds] = useState(() => new Set());
 
-  function scoreMatch(matchId) {
-    const next = { view: "score", matchId };
+  function scoreMatch(matchId, mode = null) {
+    const next = { view: "score", matchId, mode };
     setRoute(next);
-    setHash(next.view, next.matchId);
+    setHash(next.view, next.matchId, next.mode);
   }
 
   function handleMatchCardAction(matchId, isExpanded) {
@@ -1139,7 +1139,7 @@ function Board({ rows, settings, setRoute }) {
                             className="detailsButton"
                             onClick={(event) => {
                               event.stopPropagation();
-                              scoreMatch(match.id);
+                              scoreMatch(match.id, isFinal ? "scorecard" : null);
                             }}
                           >
                             Details
@@ -1155,7 +1155,7 @@ function Board({ rows, settings, setRoute }) {
                       onAction={() => handlePressCardAction(match.id, isPressExpanded)}
                       onDetails={(event) => {
                         event.stopPropagation();
-                        scoreMatch(match.id);
+                        scoreMatch(match.id, segmentIsFinal(result.press) ? "scorecard" : null);
                       }}
                     />
                   </React.Fragment>
@@ -1259,10 +1259,12 @@ function scorecardRowsForSide(session, match, row, result, side, holeIdxs, segme
   const maps = side === "A" ? result.aMaps : result.bMaps;
   const slotCount = sideSlotCount(session, players);
   const teamClass = sideTeamClass(match, side);
+  const logo = `/assets/${teamKey(sideTeamName(match, side))}.png`;
 
   return Array.from({ length: slotCount }, (_, slotIdx) => ({
     label: slotLabel(session, players, slotIdx),
     teamClass,
+    logo,
     cells: holeIdxs.map((holeIdx) => {
       const hidden = segment.decisionIdx !== null && holeIdx > segment.decisionIdx;
       const value = hidden ? null : getScore(scores, slotCount, slotIdx, holeIdx);
@@ -1276,18 +1278,28 @@ function scorecardRowsForSide(session, match, row, result, side, holeIdxs, segme
   }));
 }
 
-function ClassicMatchScorecard({ title, subtitle, session, match, row, result, segment, startIdx, endIdx, press = false }) {
+function scorecardPillClass(match, segment) {
+  if (segment.diff > 0) return sideTeamClass(match, "A");
+  if (segment.diff < 0) return sideTeamClass(match, "B");
+  if (segment.completed > 0) return "team-tied";
+  return "";
+}
+
+function ClassicMatchScorecard({ session, match, row, result, segment, startIdx, endIdx, press = false }) {
   const course = COURSE[session.nine];
-  const holeIdxs = Array.from({ length: endIdx - startIdx + 1 }, (_, idx) => startIdx + idx);
+  const segmentEndIdx = segment.decisionIdx !== null ? Math.min(endIdx, segment.decisionIdx) : endIdx;
+  const holeIdxs = Array.from({ length: segmentEndIdx - startIdx + 1 }, (_, idx) => startIdx + idx);
   const aRows = scorecardRowsForSide(session, match, row, result, "A", holeIdxs, segment);
   const bRows = scorecardRowsForSide(session, match, row, result, "B", holeIdxs, segment);
   const parTotal = holeIdxs.reduce((sum, holeIdx) => sum + course.par[holeIdx], 0);
-  const minWidth = 132 + (holeIdxs.length + 1) * 62;
+  const tableWidth = 104 + holeIdxs.length * 40 + 62;
 
   function renderPlayerRow(rowData) {
     return (
       <tr key={rowData.label} className={`playerRow ${rowData.teamClass}`}>
-        <th>{rowData.label}</th>
+        <th style={{ "--team-logo": `url(${rowData.logo})` }}>
+          <span className="classicPlayerName">{rowData.label}</span>
+        </th>
         {rowData.cells.map((cell) => (
           <td key={cell.holeIdx} className={cell.winning ? "classicWinningScore" : ""}>
             {cell.strokes > 0 && (
@@ -1300,7 +1312,7 @@ function ClassicMatchScorecard({ title, subtitle, session, match, row, result, s
             <span className="classicScoreCell">{displayScoreValue(cell.value)}</span>
           </td>
         ))}
-        <td>{scoreRowTotal(rowData.cells)}</td>
+        <td className="classicTotalCell">{scoreRowTotal(rowData.cells)}</td>
       </tr>
     );
   }
@@ -1308,31 +1320,27 @@ function ClassicMatchScorecard({ title, subtitle, session, match, row, result, s
   return (
     <section className={`card finalScorecard ${press ? "pressFinalScorecard" : ""}`}>
       <div className="finalScorecardHeader">
-        <div>
-          <h2>{title}</h2>
-          <p>{subtitle}</p>
-        </div>
-        <span className="finalScorePill">{segment.compact}</span>
+        <span className={`finalScorePill ${scorecardPillClass(match, segment)}`}>{segment.compact}</span>
       </div>
       <div className="classicScorecardWrap">
-        <table className="classicScorecard" style={{ minWidth }}>
+        <table className="classicScorecard" style={{ width: tableWidth }}>
           <thead>
             <tr className="metaRow">
               <th className="rowHead">Hole</th>
               {holeIdxs.map((holeIdx) => <th key={holeIdx}>{course.holes[holeIdx]}</th>)}
-              <th>T</th>
+              <th className="classicTotalCell">T</th>
             </tr>
           </thead>
           <tbody>
             <tr className="metaRow">
               <th>Par</th>
               {holeIdxs.map((holeIdx) => <td key={holeIdx}>{course.par[holeIdx]}</td>)}
-              <td>{parTotal}</td>
+              <td className="classicTotalCell">{parTotal}</td>
             </tr>
             <tr className="metaRow">
               <th>Hcp</th>
               {holeIdxs.map((holeIdx) => <td key={holeIdx}>{course.strokeIndex[holeIdx]}</td>)}
-              <td />
+              <td className="classicTotalCell" />
             </tr>
             {aRows.map(renderPlayerRow)}
             <tr className="matchResultRow">
@@ -1341,7 +1349,7 @@ function ClassicMatchScorecard({ title, subtitle, session, match, row, result, s
                 const state = segmentHoleState(match, result, segment, holeIdx);
                 return <td key={holeIdx} className={state?.className || ""}>{state?.label || ""}</td>;
               })}
-              <td>{segment.compact}</td>
+              <td className="classicTotalCell">{segment.compact}</td>
             </tr>
             {bRows.map(renderPlayerRow)}
           </tbody>
@@ -1352,12 +1360,9 @@ function ClassicMatchScorecard({ title, subtitle, session, match, row, result, s
 }
 
 function FinalMatchScorecards({ session, match, row, result }) {
-  const course = COURSE[session.nine];
   return (
     <div className="finalScorecards">
       <ClassicMatchScorecard
-        title="Match Scorecard"
-        subtitle={`${session.label} · Match ${match.tee} · 1 pt`}
         session={session}
         match={match}
         row={row}
@@ -1368,8 +1373,6 @@ function FinalMatchScorecards({ session, match, row, result }) {
       />
       {result.press && (
         <ClassicMatchScorecard
-          title={`Press ${pressRangeLabel(course, result.press)} Scorecard`}
-          subtitle="0.5 pt"
           session={session}
           match={match}
           row={row}
@@ -1389,22 +1392,21 @@ function Score({ rows, updateRow, route, setRoute, settings }) {
   const selectedMatchId = route.matchId || availableMatches[0]?.id;
   const found = availableMatches.find((m) => m.id === selectedMatchId) || availableMatches[0];
   const [holeIdx, setHoleIdx] = useState(0);
-  const [showScorecard, setShowScorecard] = useState(false);
+  const showScorecard = route.mode === "scorecard";
 
   useEffect(() => {
     if (!availableMatches.length) return;
     if (found?.id === selectedMatchId) return;
-    const next = { view: "score", matchId: availableMatches[0].id };
+    const next = { view: "score", matchId: availableMatches[0].id, mode: route.mode || null };
     setRoute(next);
-    setHash(next.view, next.matchId);
-  }, [availableMatches, found?.id, selectedMatchId, setRoute]);
+    setHash(next.view, next.matchId, next.mode);
+  }, [availableMatches, found?.id, route.mode, selectedMatchId, setRoute]);
 
   useEffect(() => {
     if (!found) return;
     const matchResult = computeMatch(found.session, found, rows[found.id]);
     const firstOpenHoleIdx = matchResult.holeResults.findIndex((holeResult) => !holeResult);
     setHoleIdx(firstOpenHoleIdx === -1 ? 8 : firstOpenHoleIdx);
-    setShowScorecard(false);
   }, [selectedMatchId, found?.id]);
 
   if (!found) {
@@ -1435,9 +1437,21 @@ function Score({ rows, updateRow, route, setRoute, settings }) {
   const sessionLocked = isSessionLocked(settings, session.id);
 
   function selectMatch(matchId) {
-    const next = { view: "score", matchId };
+    const next = { view: "score", matchId, mode: route.mode || null };
     setRoute(next);
-    setHash(next.view, next.matchId);
+    setHash(next.view, next.matchId, next.mode);
+  }
+
+  function openScorecard() {
+    const next = { view: "score", matchId: match.id, mode: "scorecard" };
+    setRoute(next);
+    setHash(next.view, next.matchId, next.mode);
+  }
+
+  function closeScorecard() {
+    const next = { view: "score", matchId: match.id, mode: null };
+    setRoute(next);
+    setHash(next.view, next.matchId, next.mode);
   }
 
   function setGross(side, slotIdx, value) {
@@ -1490,7 +1504,8 @@ function Score({ rows, updateRow, route, setRoute, settings }) {
     return (
       <main className="page narrow">
         <section className="card scorecardPageHeader">
-          <button className="backButton" onClick={() => setShowScorecard(false)}>‹ Back</button>
+          <button className="backButton" onClick={closeScorecard}>‹ Back</button>
+          <MatchSelect value={selectedMatchId} onChange={selectMatch} matches={availableMatches} />
           <div>
             <div className="eyebrow">Scorecard</div>
             <h2>{sideLabel(match.a)} vs {sideLabel(match.b)}</h2>
@@ -1592,7 +1607,7 @@ function Score({ rows, updateRow, route, setRoute, settings }) {
 
         <div className="twoButtons scorecardActions">
           <button disabled={holeIdx === 8} onClick={handleNextHole}>Next Hole</button>
-          <button className="secondary scorecardButton" onClick={() => setShowScorecard(true)}>Scorecard</button>
+          <button className="secondary scorecardButton" onClick={openScorecard}>Scorecard</button>
         </div>
       </section>
     </main>
