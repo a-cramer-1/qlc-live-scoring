@@ -907,6 +907,9 @@ small {
 .classicScorecard .metaRow th,
 .classicScorecard .metaRow td {
   background: #d4d4d4;
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .classicScorecard .playerRow.team-jailbirds th,
@@ -931,9 +934,9 @@ small {
   inset: 0;
   z-index: 0;
   background-image: var(--team-logo);
-  background-position: center 44%;
+  background-position: center -13px;
   background-repeat: no-repeat;
-  background-size: 104%;
+  background-size: 104% auto;
   opacity: 0.3;
   pointer-events: none;
 }

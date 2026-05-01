@@ -1323,7 +1323,7 @@ function ClassicMatchScorecard({ session, match, row, result, segment, startIdx,
         <span className={`finalScorePill ${scorecardPillClass(match, segment)}`}>{segment.compact}</span>
       </div>
       <div className="classicScorecardWrap">
-        <table className="classicScorecard" style={{ width: tableWidth }}>
+        <table className="classicScorecard" style={{ width: tableWidth, minWidth: "100%" }}>
           <thead>
             <tr className="metaRow">
               <th className="rowHead">Hole</th>
