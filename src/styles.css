@@ -704,7 +704,8 @@ small {
 
 .pressHoleGrid {
   grid-column: 1 / -1;
-  grid-template-columns: repeat(auto-fit, minmax(38px, 1fr));
+  grid-template-columns: repeat(var(--press-hole-count, 4), minmax(0, calc((100% - 40px) / 9)));
+  justify-content: center;
 }
 
 .boardHole.pressHole {
@@ -713,8 +714,8 @@ small {
 }
 
 .boardHole.pressHole .holeResult {
-  width: 28px;
-  min-width: 28px;
+  width: 24px;
+  min-width: 24px;
 }
 
 .select {
@@ -765,6 +766,156 @@ small {
   color: #facc15 !important;
   font-size: 13px;
   font-weight: 900;
+}
+
+.scorecardPageHeader {
+  display: grid;
+  gap: 12px;
+}
+
+.backButton {
+  justify-self: start;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid #404040;
+  border-radius: 13px;
+  background: #171717;
+  color: #f5f5f5;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.finalScorecards {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.finalScorecard {
+  overflow: hidden;
+  padding: 14px;
+}
+
+.pressFinalScorecard {
+  border-color: rgba(167, 139, 250, 0.72);
+  background:
+    linear-gradient(180deg, rgba(76, 29, 149, 0.2), rgba(23, 23, 23, 0.96));
+  box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.34);
+}
+
+.finalScorecardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.finalScorecardHeader h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.finalScorecardHeader p {
+  margin-top: 2px;
+  color: #a3a3a3;
+  font-weight: 800;
+}
+
+.finalScorePill {
+  flex: 0 0 auto;
+  min-width: 58px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #f5f5f5;
+  color: #0a0a0a;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.classicScorecardWrap {
+  overflow-x: auto;
+  border: 1px solid #0a0a0a;
+  border-radius: 10px;
+  background: #f5f5f5;
+}
+
+.classicScorecard {
+  width: 100%;
+  border-collapse: collapse;
+  color: #0a0a0a;
+  font-size: 15px;
+  font-weight: 850;
+}
+
+.classicScorecard th,
+.classicScorecard td {
+  position: relative;
+  min-width: 56px;
+  height: 58px;
+  border: 2px solid #0a0a0a;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.classicScorecard .rowHead,
+.classicScorecard th {
+  min-width: 120px;
+}
+
+.classicScorecard .metaRow th,
+.classicScorecard .metaRow td {
+  background: #d4d4d4;
+}
+
+.classicScorecard .playerRow.team-jailbirds th,
+.classicScorecard .playerRow.team-jailbirds td {
+  background: #4f6df3;
+}
+
+.classicScorecard .playerRow.team-zookeepers th,
+.classicScorecard .playerRow.team-zookeepers td {
+  background: #08bf68;
+}
+
+.classicScorecard .matchResultRow th,
+.classicScorecard .matchResultRow td {
+  background: #f5f5f5;
+}
+
+.classicScorecard .matchResultRow .team-jailbirds {
+  color: #4f6df3;
+}
+
+.classicScorecard .matchResultRow .team-zookeepers {
+  color: #08bf68;
+}
+
+.classicWinningScore .classicScoreCell {
+  color: #fde047;
+  font-weight: 950;
+}
+
+.classicStrokeDots {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  gap: 3px;
+}
+
+.classicStrokeDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #fde047;
+}
+
+.classicScoreCell {
+  position: relative;
+  z-index: 1;
 }
 
 .holeCard {
@@ -1003,11 +1154,25 @@ small {
   margin-top: 10px;
 }
 
+.scorecardActions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  justify-content: stretch;
+  gap: 8px;
+  width: 100%;
+}
+
 .twoButtons button,
 .secondary {
   flex: 1;
   height: 46px;
   border-radius: 15px;
+}
+
+.scorecardActions button,
+.scorecardButton {
+  width: 100%;
 }
 
 .secondary {

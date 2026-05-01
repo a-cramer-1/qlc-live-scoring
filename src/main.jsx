@@ -263,7 +263,7 @@ function getScore(scores, slotCount, slotIdx, holeIdx) {
 
 function setScore(scores, slotCount, slotIdx, holeIdx, value) {
   if (slotCount === 1) {
-    const next = [...scores];
+    const next = Array.isArray(scores) ? [...scores] : Array(9).fill(null);
     next[holeIdx] = value;
     return next;
   }
@@ -273,6 +273,47 @@ function setScore(scores, slotCount, slotIdx, holeIdx, value) {
   );
   next[slotIdx][holeIdx] = value;
   return next;
+}
+
+function sideHasSubmittedHoleScore(scores, slotCount, holeIdx) {
+  return Array.from({ length: slotCount }, (_, slotIdx) => getScore(scores, slotCount, slotIdx, holeIdx))
+    .some((score) => score !== null);
+}
+
+function sideHasMissingHoleScore(scores, slotCount, holeIdx) {
+  return Array.from({ length: slotCount }, (_, slotIdx) => getScore(scores, slotCount, slotIdx, holeIdx))
+    .some((score) => score === null);
+}
+
+function fillMissingSideScores(scores, slotCount, holeIdx) {
+  let next = normalizeSideScores(scores, slotCount);
+  for (let slotIdx = 0; slotIdx < slotCount; slotIdx++) {
+    if (getScore(next, slotCount, slotIdx, holeIdx) === null) {
+      next = setScore(next, slotCount, slotIdx, holeIdx, FORFEIT);
+    }
+  }
+  return next;
+}
+
+function bestBallHoleNeedsAutoForfeit(row, session, match, holeIdx) {
+  if (!isBestBall(session)) return false;
+  const aSlotCount = sideSlotCount(session, match.a);
+  const bSlotCount = sideSlotCount(session, match.b);
+  const aStarted = sideHasSubmittedHoleScore(row.gross_a, aSlotCount, holeIdx);
+  const bStarted = sideHasSubmittedHoleScore(row.gross_b, bSlotCount, holeIdx);
+  if (!aStarted || !bStarted) return false;
+
+  return sideHasMissingHoleScore(row.gross_a, aSlotCount, holeIdx)
+    || sideHasMissingHoleScore(row.gross_b, bSlotCount, holeIdx);
+}
+
+function bestBallAutoForfeitPatch(row, session, match, holeIdx) {
+  const aSlotCount = sideSlotCount(session, match.a);
+  const bSlotCount = sideSlotCount(session, match.b);
+  return {
+    gross_a: fillMissingSideScores(row.gross_a, aSlotCount, holeIdx),
+    gross_b: fillMissingSideScores(row.gross_b, bSlotCount, holeIdx),
+  };
 }
 
 function rawSideAllowance(players, session, match) {
@@ -989,7 +1030,10 @@ function PressBoardCard({ session, match, result, isExpanded, onAction, onDetail
       </div>
       {isExpanded && (
         <>
-          <div className="boardHoleGrid pressHoleGrid">
+          <div
+            className="boardHoleGrid pressHoleGrid"
+            style={{ "--press-hole-count": press.endIdx - press.startIdx + 1 }}
+          >
             {course.holes.slice(press.startIdx, press.endIdx + 1).map((hole, offset) => {
               const holeIdx = press.startIdx + offset;
               const isMasked = press.decided && press.decisionIdx !== null && holeIdx > press.decisionIdx;
@@ -1172,11 +1216,180 @@ function winningScoreForSlot(row, result, side, slotCount, slotIdx, holeIdx) {
   return state.known && !state.forfeited && !slot.forfeited && slot.net === state.net;
 }
 
+function displayScoreValue(value) {
+  if (value === null || value === undefined) return "";
+  return value === FORFEIT ? FORFEIT : value;
+}
+
+function scoreRowTotal(cells) {
+  const values = cells.map((cell) => cell.value);
+  if (!values.length || values.some((value) => typeof value !== "number")) return "";
+  return values.reduce((sum, value) => sum + value, 0);
+}
+
+function segmentHoleState(match, result, segment, holeIdx) {
+  if (holeIdx < segment.startIdx || holeIdx > segment.endIdx) return null;
+  if (segment.decisionIdx !== null && holeIdx > segment.decisionIdx) return null;
+  if (!result.holeResults[holeIdx]) return null;
+
+  let diff = 0;
+  for (let i = segment.startIdx; i <= holeIdx; i++) {
+    const holeResult = result.holeResults[i];
+    if (holeResult === "A") diff += 1;
+    if (holeResult === "B") diff -= 1;
+  }
+
+  if (diff === 0) return { label: "AS", className: "" };
+  const side = diff > 0 ? "A" : "B";
+  const direction = diff > 0 ? "↑" : "↓";
+  return {
+    label: `${Math.abs(diff)}${direction}`,
+    className: sideTeamClass(match, side),
+  };
+}
+
+function isClassicWinningScore(row, result, side, slotCount, slotIdx, holeIdx) {
+  const sideKey = side === "A" ? "a" : "b";
+  return winningScoreForSlot(row, result, sideKey, slotCount, slotIdx, holeIdx);
+}
+
+function scorecardRowsForSide(session, match, row, result, side, holeIdxs, segment) {
+  const players = side === "A" ? match.a : match.b;
+  const scores = side === "A" ? row.gross_a : row.gross_b;
+  const maps = side === "A" ? result.aMaps : result.bMaps;
+  const slotCount = sideSlotCount(session, players);
+  const teamClass = sideTeamClass(match, side);
+
+  return Array.from({ length: slotCount }, (_, slotIdx) => ({
+    label: slotLabel(session, players, slotIdx),
+    teamClass,
+    cells: holeIdxs.map((holeIdx) => {
+      const hidden = segment.decisionIdx !== null && holeIdx > segment.decisionIdx;
+      const value = hidden ? null : getScore(scores, slotCount, slotIdx, holeIdx);
+      return {
+        holeIdx,
+        value,
+        strokes: hidden ? 0 : maps[slotIdx][holeIdx] || 0,
+        winning: hidden ? false : isClassicWinningScore(row, result, side, slotCount, slotIdx, holeIdx),
+      };
+    }),
+  }));
+}
+
+function ClassicMatchScorecard({ title, subtitle, session, match, row, result, segment, startIdx, endIdx, press = false }) {
+  const course = COURSE[session.nine];
+  const holeIdxs = Array.from({ length: endIdx - startIdx + 1 }, (_, idx) => startIdx + idx);
+  const aRows = scorecardRowsForSide(session, match, row, result, "A", holeIdxs, segment);
+  const bRows = scorecardRowsForSide(session, match, row, result, "B", holeIdxs, segment);
+  const parTotal = holeIdxs.reduce((sum, holeIdx) => sum + course.par[holeIdx], 0);
+  const minWidth = 132 + (holeIdxs.length + 1) * 62;
+
+  function renderPlayerRow(rowData) {
+    return (
+      <tr key={rowData.label} className={`playerRow ${rowData.teamClass}`}>
+        <th>{rowData.label}</th>
+        {rowData.cells.map((cell) => (
+          <td key={cell.holeIdx} className={cell.winning ? "classicWinningScore" : ""}>
+            {cell.strokes > 0 && (
+              <span className="classicStrokeDots" aria-label={`${cell.strokes} stroke${cell.strokes === 1 ? "" : "s"}`}>
+                {Array.from({ length: cell.strokes }, (_, idx) => (
+                  <span key={idx} className="classicStrokeDot" />
+                ))}
+              </span>
+            )}
+            <span className="classicScoreCell">{displayScoreValue(cell.value)}</span>
+          </td>
+        ))}
+        <td>{scoreRowTotal(rowData.cells)}</td>
+      </tr>
+    );
+  }
+
+  return (
+    <section className={`card finalScorecard ${press ? "pressFinalScorecard" : ""}`}>
+      <div className="finalScorecardHeader">
+        <div>
+          <h2>{title}</h2>
+          <p>{subtitle}</p>
+        </div>
+        <span className="finalScorePill">{segment.compact}</span>
+      </div>
+      <div className="classicScorecardWrap">
+        <table className="classicScorecard" style={{ minWidth }}>
+          <thead>
+            <tr className="metaRow">
+              <th className="rowHead">Hole</th>
+              {holeIdxs.map((holeIdx) => <th key={holeIdx}>{course.holes[holeIdx]}</th>)}
+              <th>T</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="metaRow">
+              <th>Par</th>
+              {holeIdxs.map((holeIdx) => <td key={holeIdx}>{course.par[holeIdx]}</td>)}
+              <td>{parTotal}</td>
+            </tr>
+            <tr className="metaRow">
+              <th>Hcp</th>
+              {holeIdxs.map((holeIdx) => <td key={holeIdx}>{course.strokeIndex[holeIdx]}</td>)}
+              <td />
+            </tr>
+            {aRows.map(renderPlayerRow)}
+            <tr className="matchResultRow">
+              <th>+/-</th>
+              {holeIdxs.map((holeIdx) => {
+                const state = segmentHoleState(match, result, segment, holeIdx);
+                return <td key={holeIdx} className={state?.className || ""}>{state?.label || ""}</td>;
+              })}
+              <td>{segment.compact}</td>
+            </tr>
+            {bRows.map(renderPlayerRow)}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function FinalMatchScorecards({ session, match, row, result }) {
+  const course = COURSE[session.nine];
+  return (
+    <div className="finalScorecards">
+      <ClassicMatchScorecard
+        title="Match Scorecard"
+        subtitle={`${session.label} · Match ${match.tee} · 1 pt`}
+        session={session}
+        match={match}
+        row={row}
+        result={result}
+        segment={result.base}
+        startIdx={0}
+        endIdx={8}
+      />
+      {result.press && (
+        <ClassicMatchScorecard
+          title={`Press ${pressRangeLabel(course, result.press)} Scorecard`}
+          subtitle="0.5 pt"
+          session={session}
+          match={match}
+          row={row}
+          result={result}
+          segment={result.press}
+          startIdx={result.press.startIdx}
+          endIdx={result.press.endIdx}
+          press
+        />
+      )}
+    </div>
+  );
+}
+
 function Score({ rows, updateRow, route, setRoute, settings }) {
   const availableMatches = visibleMatches(settings);
   const selectedMatchId = route.matchId || availableMatches[0]?.id;
   const found = availableMatches.find((m) => m.id === selectedMatchId) || availableMatches[0];
   const [holeIdx, setHoleIdx] = useState(0);
+  const [showScorecard, setShowScorecard] = useState(false);
 
   useEffect(() => {
     if (!availableMatches.length) return;
@@ -1191,6 +1404,7 @@ function Score({ rows, updateRow, route, setRoute, settings }) {
     const matchResult = computeMatch(found.session, found, rows[found.id]);
     const firstOpenHoleIdx = matchResult.holeResults.findIndex((holeResult) => !holeResult);
     setHoleIdx(firstOpenHoleIdx === -1 ? 8 : firstOpenHoleIdx);
+    setShowScorecard(false);
   }, [selectedMatchId, found?.id]);
 
   if (!found) {
@@ -1239,6 +1453,14 @@ function Score({ rows, updateRow, route, setRoute, settings }) {
     setGross(side, slotIdx, null);
   }
 
+  function handleNextHole() {
+    if (holeIdx === 8) return;
+    if (!sessionLocked && bestBallHoleNeedsAutoForfeit(row, session, match, holeIdx)) {
+      updateRow(match.id, (currentRow) => bestBallAutoForfeitPatch(currentRow, session, match, holeIdx));
+    }
+    setHoleIdx(Math.min(8, holeIdx + 1));
+  }
+
   function strokeDotsForHole(i) {
     const dots = [];
     result.aMaps.forEach((map, slotIdx) => {
@@ -1262,6 +1484,22 @@ function Score({ rows, updateRow, route, setRoute, settings }) {
       }
     });
     return dots;
+  }
+
+  if (showScorecard) {
+    return (
+      <main className="page narrow">
+        <section className="card scorecardPageHeader">
+          <button className="backButton" onClick={() => setShowScorecard(false)}>‹ Back</button>
+          <div>
+            <div className="eyebrow">Scorecard</div>
+            <h2>{sideLabel(match.a)} vs {sideLabel(match.b)}</h2>
+            <p className="mutedText">{session.label} · {session.format} · {course.label}</p>
+          </div>
+        </section>
+        <FinalMatchScorecards session={session} match={match} row={row} result={result} />
+      </main>
+    );
   }
 
   return (
@@ -1352,8 +1590,9 @@ function Score({ rows, updateRow, route, setRoute, settings }) {
           />
         ))}
 
-        <div className="twoButtons">
-          <button disabled={holeIdx === 8} onClick={() => setHoleIdx(Math.min(8, holeIdx + 1))}>Next Hole</button>
+        <div className="twoButtons scorecardActions">
+          <button disabled={holeIdx === 8} onClick={handleNextHole}>Next Hole</button>
+          <button className="secondary scorecardButton" onClick={() => setShowScorecard(true)}>Scorecard</button>
         </div>
       </section>
     </main>
