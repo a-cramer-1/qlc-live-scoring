@@ -505,6 +505,14 @@ function saveLocalSettings(settings) {
   localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
 }
 
+function formatAsOfTime(value) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(value);
+}
+
 function settingsFallbackRow(settings) {
   return {
     match_id: SETTINGS_MATCH_ID,
@@ -685,6 +693,7 @@ function useScores() {
   const rowsRef = useRef(rows);
   const loadErrorLoggedRef = useRef(false);
   const [syncStatus, setSyncStatus] = useState(supabase ? "connecting" : "local");
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
 
   useEffect(() => {
     rowsRef.current = rows;
@@ -718,6 +727,7 @@ function useScores() {
         rowsRef.current = nextRows;
         setRows(nextRows);
         setSyncStatus("live");
+        setLastSyncedAt(new Date());
       }
     }
 
@@ -741,6 +751,7 @@ function useScores() {
           rowsRef.current = nextRows;
           return nextRows;
         });
+        setLastSyncedAt(new Date());
       })
       .subscribe((status) => {
         if (status === "SUBSCRIBED") setSyncStatus("live");
@@ -776,12 +787,13 @@ function useScores() {
     }
   }
 
-  return { rows, updateRow, syncStatus };
+  return { rows, updateRow, syncStatus, lastSyncedAt };
 }
 
 function useAppSettings() {
   const [settings, setSettings] = useState(() => (supabase ? normalizeSettings(DEFAULT_SETTINGS) : loadLocalSettings()));
   const settingsRef = useRef(settings);
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -797,6 +809,7 @@ function useAppSettings() {
       settingsRef.current = normalized;
       setSettings(normalized);
       saveLocalSettings(normalized);
+      setLastSyncedAt(new Date());
     }
 
     async function loadFallbackSettings() {
@@ -892,7 +905,7 @@ function useAppSettings() {
     await supabase.from("match_scores").upsert(settingsFallbackRow(nextSettings));
   }
 
-  return { settings, updateSettings };
+  return { settings, updateSettings, lastSyncedAt };
 }
 
 function getInitialRoute() {
@@ -908,7 +921,7 @@ function setHash(view, matchId, mode = null) {
   window.location.hash = view === "score" && matchId ? `/score/${matchId}${mode === "scorecard" ? "/scorecard" : ""}` : `/${view}`;
 }
 
-function Header({ route, setRoute, syncStatus }) {
+function Header({ route, setRoute, syncStatus, syncAsOf }) {
   function nav(view) {
     const next = { view, matchId: view === "score" ? route.matchId || MATCHES[0].id : null, mode: null };
     setRoute(next);
@@ -924,7 +937,10 @@ function Header({ route, setRoute, syncStatus }) {
         <button className={route.view === "board" ? "active" : ""} onClick={() => nav("board")}>Overall</button>
         <button className={route.view === "score" ? "active" : ""} onClick={() => nav("score")}>Matches</button>
         <button className={route.view === "admin" ? "active" : ""} onClick={() => nav("admin")}>Admin</button>
-        <div className={`sync ${syncStatus}`}>{syncStatus === "live" ? "Live" : syncStatus === "local" ? "Local" : syncStatus}</div>
+        <div className="syncBlock">
+          <div className={`sync ${syncStatus}`}>{syncStatus === "live" ? "Live" : syncStatus === "local" ? "Local" : syncStatus}</div>
+          {syncAsOf && <div className="syncAsOf">As of {formatAsOfTime(syncAsOf)}</div>}
+        </div>
       </div>
     </header>
   );
@@ -2012,9 +2028,12 @@ function Admin({ rows, updateRow, settings, updateSettings }) {
 }
 
 function App() {
-  const { rows, updateRow, syncStatus } = useScores();
-  const { settings, updateSettings } = useAppSettings();
+  const { rows, updateRow, syncStatus, lastSyncedAt: scoresSyncedAt } = useScores();
+  const { settings, updateSettings, lastSyncedAt: settingsSyncedAt } = useAppSettings();
   const [route, setRoute] = useState(getInitialRoute);
+  const syncAsOf = [scoresSyncedAt, settingsSyncedAt]
+    .filter(Boolean)
+    .sort((a, b) => b.getTime() - a.getTime())[0] || null;
 
   useEffect(() => {
     const onHash = () => setRoute(getInitialRoute());
@@ -2024,7 +2043,7 @@ function App() {
 
   return (
     <>
-      <Header route={route} setRoute={setRoute} syncStatus={syncStatus} />
+      <Header route={route} setRoute={setRoute} syncStatus={syncStatus} syncAsOf={syncAsOf} />
       {route.view === "score" && <Score rows={rows} updateRow={updateRow} route={route} setRoute={setRoute} settings={settings} />}
       {route.view === "admin" && (
         <AdminGate>
