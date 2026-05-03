@@ -143,9 +143,12 @@ const SESSIONS = [
 const MATCHES = SESSIONS.flatMap((session) => session.matches.map((match) => ({ ...match, session })));
 const STORAGE_KEY = "qlc-live-scoring-fallback-v2";
 const SETTINGS_STORAGE_KEY = "qlc-live-scoring-settings-v1";
+const SETTINGS_MATCH_ID = "__app_settings__";
 const ADMIN_AUTH_KEY = "qlc-admin-auth";
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || "qlc2026";
 const FORFEIT = "X";
+const SCORE_REFRESH_MS = 15000;
+const SETTINGS_REFRESH_MS = 10000;
 const DEFAULT_SETTINGS = {
   visibleSessionIds: ["sat-am", "sat-pm"],
   sessionOrder: ["sat-am", "sat-pm", "sun-am", "sun-pm"],
@@ -502,6 +505,20 @@ function saveLocalSettings(settings) {
   localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
 }
 
+function settingsFallbackRow(settings) {
+  return {
+    match_id: SETTINGS_MATCH_ID,
+    gross_a: normalizeSettings(settings),
+    gross_b: [],
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function settingsFromFallbackRow(row) {
+  if (row?.match_id !== SETTINGS_MATCH_ID || !row.gross_a || Array.isArray(row.gross_a)) return null;
+  return normalizeSettings(row.gross_a);
+}
+
 function orderedSessions(settings, options = {}) {
   const normalized = normalizeSettings(settings);
   const visibleSet = new Set(normalized.visibleSessionIds);
@@ -666,6 +683,7 @@ function computeMatch(session, match, row) {
 function useScores() {
   const [rows, setRows] = useState(() => loadLocalRows());
   const rowsRef = useRef(rows);
+  const loadErrorLoggedRef = useRef(false);
   const [syncStatus, setSyncStatus] = useState(supabase ? "connecting" : "local");
 
   useEffect(() => {
@@ -680,10 +698,12 @@ function useScores() {
     async function load() {
       const { data, error } = await supabase.from("match_scores").select("*");
       if (error) {
-        console.error(error);
+        if (!loadErrorLoggedRef.current) console.error(error);
+        loadErrorLoggedRef.current = true;
         setSyncStatus("error");
         return;
       }
+      loadErrorLoggedRef.current = false;
 
       const existingIds = new Set((data || []).map((r) => r.match_id));
       const missing = MATCHES.filter((m) => !existingIds.has(m.id)).map((m) => blankRow(m));
@@ -701,13 +721,21 @@ function useScores() {
       }
     }
 
+    function refreshWhenVisible() {
+      if (document.visibilityState !== "hidden") load();
+    }
+
     load();
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    const refreshTimer = window.setInterval(refreshWhenVisible, SCORE_REFRESH_MS);
 
     const channel = supabase
       .channel("qlc-match-scores")
       .on("postgres_changes", { event: "*", schema: "public", table: "match_scores" }, (payload) => {
         const row = payload.new;
         if (!row?.match_id) return;
+        if (!MATCHES.some((match) => match.id === row.match_id)) return;
         setRows((prev) => {
           const nextRows = { ...prev, [row.match_id]: normalizeRows([row])[row.match_id] };
           rowsRef.current = nextRows;
@@ -720,6 +748,9 @@ function useScores() {
 
     return () => {
       active = false;
+      window.clearInterval(refreshTimer);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
       supabase.removeChannel(channel);
     };
   }, []);
@@ -749,7 +780,7 @@ function useScores() {
 }
 
 function useAppSettings() {
-  const [settings, setSettings] = useState(() => loadLocalSettings());
+  const [settings, setSettings] = useState(() => (supabase ? normalizeSettings(DEFAULT_SETTINGS) : loadLocalSettings()));
   const settingsRef = useRef(settings);
 
   useEffect(() => {
@@ -761,6 +792,29 @@ function useAppSettings() {
 
     let active = true;
 
+    function applySettings(nextSettings) {
+      const normalized = normalizeSettings(nextSettings);
+      settingsRef.current = normalized;
+      setSettings(normalized);
+      saveLocalSettings(normalized);
+    }
+
+    async function loadFallbackSettings() {
+      const { data, error } = await supabase
+        .from("match_scores")
+        .select("match_id,gross_a")
+        .eq("match_id", SETTINGS_MATCH_ID)
+        .maybeSingle();
+
+      if (error) return null;
+
+      const fallbackSettings = settingsFromFallbackRow(data);
+      if (fallbackSettings) return fallbackSettings;
+
+      await supabase.from("match_scores").upsert(settingsFallbackRow(DEFAULT_SETTINGS));
+      return normalizeSettings(DEFAULT_SETTINGS);
+    }
+
     async function load() {
       const { data, error } = await supabase
         .from("app_settings")
@@ -769,7 +823,8 @@ function useAppSettings() {
         .maybeSingle();
 
       if (error) {
-        console.error(error);
+        const fallbackSettings = await loadFallbackSettings();
+        if (active && fallbackSettings) applySettings(fallbackSettings);
         return;
       }
 
@@ -780,28 +835,36 @@ function useAppSettings() {
       }
 
       if (active) {
-        const nextSettings = normalizeSettings(data.settings);
-        settingsRef.current = nextSettings;
-        setSettings(nextSettings);
-        saveLocalSettings(nextSettings);
+        applySettings(data.settings);
       }
     }
 
+    function refreshWhenVisible() {
+      if (document.visibilityState !== "hidden") load();
+    }
+
     load();
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    const refreshTimer = window.setInterval(refreshWhenVisible, SETTINGS_REFRESH_MS);
 
     const channel = supabase
       .channel("qlc-app-settings")
       .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, (payload) => {
         if (payload.new?.id !== "global") return;
-        const nextSettings = normalizeSettings(payload.new.settings);
-        settingsRef.current = nextSettings;
-        setSettings(nextSettings);
-        saveLocalSettings(nextSettings);
+        applySettings(payload.new.settings);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "match_scores", filter: `match_id=eq.${SETTINGS_MATCH_ID}` }, (payload) => {
+        const fallbackSettings = settingsFromFallbackRow(payload.new);
+        if (fallbackSettings) applySettings(fallbackSettings);
       })
       .subscribe();
 
     return () => {
       active = false;
+      window.clearInterval(refreshTimer);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
       supabase.removeChannel(channel);
     };
   }, []);
@@ -820,7 +883,13 @@ function useAppSettings() {
       settings: nextSettings,
       updated_at: new Date().toISOString(),
     });
-    if (error) console.error(error);
+    if (error) {
+      const { error: fallbackError } = await supabase.from("match_scores").upsert(settingsFallbackRow(nextSettings));
+      if (fallbackError) console.error(fallbackError);
+      return;
+    }
+
+    await supabase.from("match_scores").upsert(settingsFallbackRow(nextSettings));
   }
 
   return { settings, updateSettings };
