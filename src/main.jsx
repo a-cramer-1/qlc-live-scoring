@@ -977,6 +977,167 @@ function projectedPressSidePoints(press) {
   return { pointsA: 0, pointsB: 0, counted: true, active: true };
 }
 
+const FUTURE_HOLE_OUTCOMES = [
+  { diff: 1, probability: 0.32 },
+  { diff: 0, probability: 0.36 },
+  { diff: -1, probability: 0.32 },
+];
+
+function pointUnits(points) {
+  return Math.round(points * 2);
+}
+
+function segmentOutcomeDistribution(segment, pointsValue, tiePointsA = pointsValue / 2, tiePointsB = pointsValue / 2) {
+  if (segmentIsFinal(segment)) {
+    return [{ pointsA: segment.pointsA, pointsB: segment.pointsB, probability: 1 }];
+  }
+
+  const remaining = Math.max(0, segment.totalHoles - segment.completed);
+  let diffDistribution = new Map([[segment.diff, 1]]);
+
+  for (let hole = 0; hole < remaining; hole++) {
+    const next = new Map();
+    diffDistribution.forEach((probability, diff) => {
+      FUTURE_HOLE_OUTCOMES.forEach((outcome) => {
+        const nextDiff = diff + outcome.diff;
+        next.set(nextDiff, (next.get(nextDiff) || 0) + probability * outcome.probability);
+      });
+    });
+    diffDistribution = next;
+  }
+
+  const outcomes = new Map();
+  diffDistribution.forEach((probability, diff) => {
+    let pointsA = tiePointsA;
+    let pointsB = tiePointsB;
+    if (diff > 0) {
+      pointsA = pointsValue;
+      pointsB = 0;
+    } else if (diff < 0) {
+      pointsA = 0;
+      pointsB = pointsValue;
+    }
+    const key = `${pointsA}:${pointsB}`;
+    const current = outcomes.get(key) || { pointsA, pointsB, probability: 0 };
+    current.probability += probability;
+    outcomes.set(key, current);
+  });
+
+  return Array.from(outcomes.values());
+}
+
+function teamDiffUnitsForSidePoints(match, pointsA, pointsB) {
+  const aIsJailbirds = sideTeamName(match, "A") === "Jailbirds";
+  const jailbirds = aIsJailbirds ? pointsA : pointsB;
+  const zookeepers = aIsJailbirds ? pointsB : pointsA;
+  return pointUnits(jailbirds - zookeepers);
+}
+
+function addSegmentToWinDistribution(diffDistribution, match, outcomes) {
+  const next = new Map();
+  diffDistribution.forEach((currentProbability, currentDiff) => {
+    outcomes.forEach((outcome) => {
+      const segmentDiff = teamDiffUnitsForSidePoints(match, outcome.pointsA, outcome.pointsB);
+      const nextDiff = currentDiff + segmentDiff;
+      next.set(nextDiff, (next.get(nextDiff) || 0) + currentProbability * outcome.probability);
+    });
+  });
+  return next;
+}
+
+function overallWinProbability(rows, settings) {
+  let diffDistribution = new Map([[0, 1]]);
+  let modeledSegments = 0;
+  let modeledPresses = 0;
+
+  orderedSessions(settings).forEach((session) => {
+    session.matches.forEach((match) => {
+      const result = computeMatch(session, match, rows[match.id]);
+      diffDistribution = addSegmentToWinDistribution(diffDistribution, match, segmentOutcomeDistribution(result.base, 1));
+      modeledSegments++;
+
+      if (result.press) {
+        diffDistribution = addSegmentToWinDistribution(
+          diffDistribution,
+          match,
+          segmentOutcomeDistribution(result.press, 0.5, 0, 0)
+        );
+        modeledSegments++;
+        modeledPresses++;
+      }
+    });
+  });
+
+  let jailbirds = 0;
+  let zookeepers = 0;
+  let tie = 0;
+
+  diffDistribution.forEach((probability, diff) => {
+    if (diff > 0) jailbirds += probability;
+    else if (diff < 0) zookeepers += probability;
+    else tie += probability;
+  });
+
+  return { jailbirds, zookeepers, tie, modeledSegments, modeledPresses };
+}
+
+function formatProbability(probability) {
+  return `${Math.round(probability * 100)}%`;
+}
+
+function probabilityIsLocked(probability) {
+  return Math.round(probability * 100) === 100;
+}
+
+function activeWinStreakSide(holeResults, segment) {
+  const lastIdx = segment.decisionIdx !== null ? segment.decisionIdx : segment.endIdx;
+  let streakSide = null;
+  let streakCount = 0;
+
+  for (let holeIdx = segment.startIdx; holeIdx <= lastIdx; holeIdx++) {
+    const result = holeResults[holeIdx];
+    if (!result) break;
+    if (result !== "A" && result !== "B") {
+      streakSide = null;
+      streakCount = 0;
+      continue;
+    }
+    if (result === streakSide) {
+      streakCount++;
+    } else {
+      streakSide = result;
+      streakCount = 1;
+    }
+  }
+
+  return streakCount >= 2 ? streakSide : null;
+}
+
+function SideName({ match, result, side, streakSide = null }) {
+  return (
+    <strong className={sideNameClass(match, result, side)}>
+      {sideLabel(side === "A" ? match.a : match.b)}
+      {streakSide === side && <span className="streakFire" aria-label="On a win streak">🔥</span>}
+    </strong>
+  );
+}
+
+function CrownOverlay({ label }) {
+  return (
+    <svg className="scoreCrown" viewBox="0 0 180 112" role="img" aria-label={label}>
+      <path className="crownStroke" d="M22 30c18 35 35 40 52 6 13 39 35 45 56 5 8 35 22 43 38 17" />
+      <path className="crownStroke" d="M31 85c29-3 70 7 114 19" />
+      <path className="crownStroke" d="M26 63c37 8 75 20 118 37" />
+      <path className="crownStroke" d="M26 63l5 22" />
+      <path className="crownStroke" d="M144 100l24-42" />
+      <circle className="crownDot" cx="22" cy="30" r="7" />
+      <circle className="crownDot" cx="74" cy="36" r="7" />
+      <circle className="crownDot" cx="130" cy="41" r="7" />
+      <circle className="crownDot" cx="168" cy="58" r="7" />
+    </svg>
+  );
+}
+
 function scoreTotals(rows, settings) {
   const actual = { jailbirds: 0, zookeepers: 0 };
   const projected = { jailbirds: 0, zookeepers: 0 };
@@ -1011,6 +1172,11 @@ function scoreTotals(rows, settings) {
 
 function OverallScore({ rows, settings }) {
   const totals = useMemo(() => scoreTotals(rows, settings), [rows, settings]);
+  const winProbability = useMemo(() => overallWinProbability(rows, settings), [rows, settings]);
+  const jailbirdsWp = formatProbability(winProbability.jailbirds);
+  const zookeepersWp = formatProbability(winProbability.zookeepers);
+  const jailbirdsLocked = probabilityIsLocked(winProbability.jailbirds);
+  const zookeepersLocked = probabilityIsLocked(winProbability.zookeepers);
 
   return (
     <section className="scoreHero">
@@ -1021,16 +1187,20 @@ function OverallScore({ rows, settings }) {
       <div className="scoreBoxes">
         <div className="scoreBox">
           <img src="/assets/jailbirds.png" alt="" />
+          {jailbirdsLocked && <CrownOverlay label="Jailbirds have clinched" />}
           <div className="scoreBoxText">
             <strong>{totals.actual.jailbirds}</strong>
             <span>Projected: {totals.projected.jailbirds}</span>
+            <span>WP: {jailbirdsWp}</span>
           </div>
         </div>
         <div className="scoreBox">
           <img src="/assets/zookeepers.png" alt="" />
+          {zookeepersLocked && <CrownOverlay label="Zookeepers have clinched" />}
           <div className="scoreBoxText">
             <strong>{totals.actual.zookeepers}</strong>
             <span>Projected: {totals.projected.zookeepers}</span>
+            <span>WP: {zookeepersWp}</span>
           </div>
         </div>
       </div>
@@ -1088,6 +1258,7 @@ function PressBoardCard({ session, match, result, isExpanded, onAction, onDetail
   const isPressFinal = segmentIsFinal(press);
   const isPressHalved = isPressFinal && !pressWinnerSide;
   const pressWinnerPlayers = pressWinnerSide ? (pressWinnerSide === "A" ? match.a : match.b) : [];
+  const streakSide = isPressFinal ? null : activeWinStreakSide(result.holeResults, press);
 
   return (
     <div
@@ -1106,8 +1277,8 @@ function PressBoardCard({ session, match, result, isExpanded, onAction, onDetail
       <WinnerHeadshots players={pressWinnerPlayers} compact tie={isPressHalved} />
       <div>
         <small>Press {pressRangeLabel(course, press)} · 0.5 pt</small>
-        <strong className={sideNameClass(match, press, "A")}>{sideLabel(match.a)}</strong>
-        <strong className={sideNameClass(match, press, "B")}>{sideLabel(match.b)}</strong>
+        <SideName match={match} result={press} side="A" streakSide={streakSide} />
+        <SideName match={match} result={press} side="B" streakSide={streakSide} />
       </div>
       <div className="right">
         <strong>{press.compact}</strong>
@@ -1190,6 +1361,7 @@ function Board({ rows, settings, setRoute }) {
                 const baseWinnerSide = winningSide(result);
                 const baseIsHalved = isFinal && !baseWinnerSide;
                 const baseWinnerPlayers = isFinal && baseWinnerSide ? (baseWinnerSide === "A" ? match.a : match.b) : [];
+                const streakSide = isFinal ? null : activeWinStreakSide(result.holeResults, result.base);
                 return (
                   <React.Fragment key={match.id}>
                     <div
@@ -1208,8 +1380,8 @@ function Board({ rows, settings, setRoute }) {
                       <WinnerHeadshots players={baseWinnerPlayers} tie={baseIsHalved} />
                       <div>
                         <small>Match {match.tee} · 1 pt</small>
-                        <strong className={sideNameClass(match, result, "A")}>{sideLabel(match.a)}</strong>
-                        <strong className={sideNameClass(match, result, "B")}>{sideLabel(match.b)}</strong>
+                        <SideName match={match} result={result} side="A" streakSide={streakSide} />
+                        <SideName match={match} result={result} side="B" streakSide={streakSide} />
                       </div>
                       <div className="right">
                         <strong>{result.compact}</strong>
